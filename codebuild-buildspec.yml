@@ -6,6 +6,8 @@ phases:
       python: 3.11
     commands:
       - pip install --upgrade --force-reinstall . "awscli>1.20.30"
+      - pip install s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities-0.1.0-py3-none-any.whl
+Example:
   
   build:
     commands:
