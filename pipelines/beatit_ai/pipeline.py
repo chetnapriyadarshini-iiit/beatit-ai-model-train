@@ -344,11 +344,15 @@ step_process = ProcessingStep(
         model_package_group_name=model_package_group_name
     )
 
-    model_path = f"s3://{default_bucket}/{base_job_prefix}/AbaloneTrain"
+    # ============================================================
+    # Training: XGBoost binary classifier for churn prediction
+    # ============================================================
+    model_path = f"s3://{default_bucket}/{base_job_prefix}/ChurnTrain"
+
     image_uri = sagemaker.image_uris.retrieve(
         framework="xgboost",
         region=region,
-        version="1.0-1",
+        version="1.0-1", 
         py_version="py3",
         instance_type=training_instance_type,
     )
@@ -358,23 +362,23 @@ step_process = ProcessingStep(
         instance_type=training_instance_type,
         instance_count=1,
         output_path=model_path,
-        base_job_name=f"{base_job_prefix}/abalone-train",
+        base_job_name=f"{base_job_prefix}/churn-train",
         sagemaker_session=pipeline_session,
         role=role,
-        dependencies=[
-        "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
-    ],
+        # Removing dependencies here for now; we can add them back if training needs the common utils package
     )
 
+    # Hyperparameters tuned for binary classification (you can tweak later)
     xgb_train.set_hyperparameters(
-        objective="reg:linear",
-        num_round=50,
-        max_depth=5,
-        eta=0.2,
-        gamma=4,
-        min_child_weight=6,
-        subsample=0.7,
-        silent=0,
+        objective="binary:logistic",  # churn: 0/1
+        eval_metric="auc",            # good default metric for churn
+        num_round=200,                # number of boosting rounds
+        max_depth=6,
+        eta=0.1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        min_child_weight=1,
+        gamma=0,
     )
 
     step_args = xgb_train.fit(
@@ -383,7 +387,7 @@ step_process = ProcessingStep(
                 s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
                     "train"
                 ].S3Output.S3Uri,
-                content_type="text/csv",
+                content_type="text/csv",   # headerless CSV, first col = label
             ),
             "validation": TrainingInput(
                 s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
@@ -395,7 +399,7 @@ step_process = ProcessingStep(
     )
 
     step_train = TrainingStep(
-        name="TrainAbaloneModel",
+        name="TrainChurnModel",
         step_args=step_args,
         depends_on=["DataQualityCheckStep", "DataBiasCheckStep"],
     )
