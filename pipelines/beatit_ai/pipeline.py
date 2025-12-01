@@ -35,7 +35,11 @@ from sagemaker.processing import (
     ScriptProcessor,
 )
 from sagemaker.sklearn.processing import SKLearnProcessor
-from sagemaker.workflow.conditions import ConditionLessThanOrEqualTo
+from sagemaker.workflow.conditions import (
+    ConditionLessThanOrEqualTo,
+    ConditionGreaterThanOrEqualTo,
+)
+
 from sagemaker.workflow.condition_step import (
     ConditionStep,
 )
@@ -579,15 +583,19 @@ step_process = ProcessingStep(
         model_package_group_name=model_package_group_name
     )
 
+        # ============================================================
+    # Evaluation step: compute AUC / accuracy / F1 on test set
+    # ============================================================
     script_eval = ScriptProcessor(
         image_uri=image_uri,
         command=["python3"],
         instance_type=processing_instance_type,
         instance_count=1,
-        base_job_name=f"{base_job_prefix}/script-abalone-eval",
+        base_job_name=f"{base_job_prefix}/script-churn-eval",
         sagemaker_session=pipeline_session,
         role=role,
     )
+
     step_args = script_eval.run(
         inputs=[
             ProcessingInput(
@@ -602,20 +610,26 @@ step_process = ProcessingStep(
             ),
         ],
         outputs=[
-            ProcessingOutput(output_name="evaluation", source="/opt/ml/processing/evaluation"),
+            ProcessingOutput(
+                output_name="evaluation",
+                source="/opt/ml/processing/evaluation",
+            ),
         ],
         code=os.path.join(BASE_DIR, "evaluate.py"),
     )
+
     evaluation_report = PropertyFile(
-        name="AbaloneEvaluationReport",
+        name="ChurnEvaluationReport",
         output_name="evaluation",
         path="evaluation.json",
     )
+
     step_eval = ProcessingStep(
-        name="EvaluateAbaloneModel",
+        name="EvaluateChurnModel",
         step_args=step_args,
         property_files=[evaluation_report],
     )
+
 
     model_metrics = ModelMetrics(
         model_data_statistics=MetricsSource(
@@ -736,20 +750,25 @@ step_process = ProcessingStep(
     )
 
     # condition step for evaluating model quality and branching execution
-    cond_lte = ConditionLessThanOrEqualTo(
+        # ============================================================
+    # Condition step: only register model if AUC is good enough
+    # ============================================================
+    cond_auc = ConditionGreaterThanOrEqualTo(
         left=JsonGet(
             step_name=step_eval.name,
             property_file=evaluation_report,
-            json_path="regression_metrics.mse.value"
+            json_path="binary_classification_metrics.auc.value",
         ),
-        right=6.0,
+        right=0.80,   # 👈 threshold; adjust based on your expectations
     )
+
     step_cond = ConditionStep(
-        name="CheckMSEAbaloneEvaluation",
-        conditions=[cond_lte],
+        name="CheckAUCChurnEvaluation",
+        conditions=[cond_auc],
         if_steps=[step_register],
         else_steps=[],
     )
+
 
     # pipeline instance
     pipeline = Pipeline(
