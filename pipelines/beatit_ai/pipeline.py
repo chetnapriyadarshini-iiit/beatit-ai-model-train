@@ -193,7 +193,7 @@ def get_pipeline(
     )
     input_data = ParameterString(
         name="InputDataUrl",
-        default_value=f"s3://churn-data-store/bronze/",
+        default_value=f"s3://beatit-ai-data/raw/",
     )
 
     # for data quality check step
@@ -223,30 +223,51 @@ def get_pipeline(
     register_new_baseline_model_explainability = ParameterBoolean(name="RegisterNewModelExplainabilityBaseline", default_value=False)
     supplied_baseline_constraints_model_explainability = ParameterString(name="ModelExplainabilitySuppliedBaselineConstraints", default_value='')
 
-    # processing step for feature engineering
-    sklearn_processor = SKLearnProcessor(
-        framework_version="0.23-1",
-        instance_type=processing_instance_type,
-        instance_count=processing_instance_count,
-        base_job_name=f"{base_job_prefix}/sklearn-abalone-preprocess",
-        sagemaker_session=pipeline_session,
-        role=role,
-    )
 
-    step_args = sklearn_processor.run(
-        outputs=[
-            ProcessingOutput(output_name="train", source="/opt/ml/processing/train"),
-            ProcessingOutput(output_name="validation", source="/opt/ml/processing/validation"),
-            ProcessingOutput(output_name="test", source="/opt/ml/processing/test"),
-        ],
-        code=os.path.join(BASE_DIR, "preprocess.py"),
-        arguments=["--input-data", input_data],
-    )
+sklearn_processor = SKLearnProcessor(
+    framework_version="0.23-1",
+    instance_type=processing_instance_type,
+    instance_count=processing_instance_count,
+    base_job_name=f"{base_job_prefix}/sklearn-churn-preprocess",
+    sagemaker_session=pipeline_session,
+    role=role,
+)
 
-    step_process = ProcessingStep(
-        name="PreprocessAbaloneData",
-        step_args=step_args,        
-    )
+step_args = sklearn_processor.run(
+    inputs=[
+        ProcessingInput(
+            source=input_data,  # s3://beatit-ai-data/raw/
+            destination="/opt/ml/processing/raw"
+        )
+    ],
+    outputs=[
+        ProcessingOutput(
+            output_name="train",
+            source="/opt/ml/processing/train"
+        ),
+        ProcessingOutput(
+            output_name="validation",
+            source="/opt/ml/processing/validation"
+        ),
+        ProcessingOutput(
+            output_name="test",
+            source="/opt/ml/processing/test"
+        ),
+    ],
+    code=os.path.join(BASE_DIR, "preprocess.py"),
+    arguments=[
+        "--raw-data-dir", "/opt/ml/processing/raw",
+        "--train-output-dir", "/opt/ml/processing/train",
+        "--val-output-dir", "/opt/ml/processing/validation",
+        "--test-output-dir", "/opt/ml/processing/test",
+    ],
+)
+
+step_process = ProcessingStep(
+    name="PreprocessChurnData",
+    step_args=step_args,
+)
+
 
     ### Calculating the Data Quality
 
@@ -340,6 +361,9 @@ def get_pipeline(
         base_job_name=f"{base_job_prefix}/abalone-train",
         sagemaker_session=pipeline_session,
         role=role,
+        dependencies=[
+        "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
+    ],
     )
 
     xgb_train.set_hyperparameters(
