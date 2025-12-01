@@ -56,7 +56,7 @@ def build_feature_table(train, members, transactions, user_logs):
     """
     key = "msno"
 
-    ################################### Members ##########################################
+    """################################### Members ##########################################"""
 
     members["gender"] = utils.get_fill_na_dataframe(members, "gender", value="others")
     gender_mapping = {"male": 0, "female": 1, "others": 2}
@@ -73,7 +73,7 @@ def build_feature_table(train, members, transactions, user_logs):
     condition = f"{average_age} if (x <= 0 or x > 100) else x"
     members["bd"] = utils.get_apply_condiiton_on_column(members, "bd", condition)
 
-    ################ Transactions Feature Engineering ###############################
+    """################ Transactions Feature Engineering ###############################"""
 
     transactions["transaction_date"] = utils.fix_time_in_df(
         transactions, "transaction_date", expand=False
@@ -189,7 +189,7 @@ def build_feature_table(train, members, transactions, user_logs):
 
     user_logs_final = utils.get_merge(user_logs_transformed_base, user_logs_transformed_dates, on=key)
 
-    ########################### Final joins & features #################################
+    """ ########################### Final joins & features ################################# """
 
     train_df_v01 = utils.get_merge(members, train, on=key, axis=1, how="inner")
     train_df_v02 = utils.get_merge(train_df_v01, transactions_features, on=key, axis=1, how="inner")
@@ -209,6 +209,10 @@ def build_feature_table(train, members, transactions, user_logs):
     # Be sure pyarrow/fastparquet + s3fs are installed if you keep this.
     # s3_parquet_path = "s3://beatit-ai-data/data-engineering/silver/train_df_final.parquet"
     # train_df_final.to_parquet(s3_parquet_path, index=False)
+
+    label_col = "is_churn"
+    cols = [c for c in train_df_final.columns if c != label_col]
+    train_df_final = train_df_final[[label_col] + cols]
 
     return train_df_final
 
