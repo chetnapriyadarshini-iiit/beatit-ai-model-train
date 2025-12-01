@@ -210,9 +210,21 @@ def build_feature_table(train, members, transactions, user_logs):
     # s3_parquet_path = "s3://beatit-ai-data/data-engineering/silver/train_df_final.parquet"
     # train_df_final.to_parquet(s3_parquet_path, index=False)
 
+        # Ensure label and sensitive feature have fixed positions
     label_col = "is_churn"
-    cols = [c for c in train_df_final.columns if c != label_col]
-    train_df_final = train_df_final[[label_col] + cols]
+    sensitive_col = "registered_via"
+
+    # Start from all columns
+    cols = list(train_df_final.columns)
+
+    # Remove label and sensitive feature from the list (if present)
+    cols = [c for c in cols if c not in [label_col, sensitive_col]]
+
+    # Final column order:
+    # 0: is_churn (label)
+    # 1: registered_via (sensitive feature)
+    # 2..N: rest of features
+    train_df_final = train_df_final[[label_col, sensitive_col] + cols]
 
     return train_df_final
 
