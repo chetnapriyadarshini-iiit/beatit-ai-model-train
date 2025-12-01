@@ -333,7 +333,7 @@ step_process = ProcessingStep(
     # (e.g., gender, region, plan type). For now, it's a placeholder.
     data_bias_config = BiasConfig(
         label_values_or_threshold=[1],  # positive class = churn
-        facet_name=[5],                 # TODO: set 5 to the index of your sensitive feature
+        facet_name=[1],                 # registered via
         # If you want to restrict to specific facet values, you can add:
         # facet_values_or_threshold=[["0"], ["1"]]  # example for binary encoded feature
     )
@@ -544,7 +544,7 @@ step_process = ProcessingStep(
     # - facet_name should be the column index of the sensitive feature in the headerless CSV.
     model_bias_config = BiasConfig(
         label_values_or_threshold=[1],  # positive class = churn
-        facet_name=[5],                 # TODO: set 5 to column index of your sensitive feature
+        facet_name=[1],                 # registered_via
         # facet_values_or_threshold can be used similarly as in data_bias_config if needed.
     )
 
