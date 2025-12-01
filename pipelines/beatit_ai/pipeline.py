@@ -490,7 +490,7 @@ step_process = ProcessingStep(
             'modelqualitycheckstep',
         ],
     ),
-    problem_type='BinaryClassification',   # 👈 changed
+    problem_type='BinaryClassification',   # changed
     inference_attribute='_c0',             # prediction column
     ground_truth_attribute='_c1',          # label column
 )
