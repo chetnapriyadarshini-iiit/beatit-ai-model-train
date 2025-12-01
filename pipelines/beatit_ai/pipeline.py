@@ -321,18 +321,31 @@ step_process = ProcessingStep(
 
     data_bias_analysis_cfg_output_path = f"s3://{default_bucket}/{base_job_prefix}/databiascheckstep/analysis_cfg"
 
-    data_bias_data_config = DataConfig(
-        s3_data_input_path=step_process.properties.ProcessingOutputConfig.Outputs["train"].S3Output.S3Uri,
-        s3_output_path=Join(on='/', values=['s3:/', default_bucket, base_job_prefix, ExecutionVariables.PIPELINE_EXECUTION_ID, 'databiascheckstep']),
-        label=0,
-        dataset_type="text/csv",
-        s3_analysis_config_output_path=data_bias_analysis_cfg_output_path,
+        # We configure Clarify to detect bias for the churn label.
+    # - Our CSV is headerless
+    # - Column 0 = label 'is_churn' (0 = no churn, 1 = churn)
+    #
+    # For label_values_or_threshold, [1] means we treat the positive class
+    # "is_churn = 1" as the outcome of interest for bias metrics.
+    #
+    # facet_name is the index of the sensitive feature column in the headerless CSV.
+    # You should set this to the actual column index of the feature you want to audit
+    # (e.g., gender, region, plan type). For now, it's a placeholder.
+    data_bias_config = BiasConfig(
+        label_values_or_threshold=[1],  # positive class = churn
+        facet_name=[5],                 # TODO: set 5 to the index of your sensitive feature
+        # If you want to restrict to specific facet values, you can add:
+        # facet_values_or_threshold=[["0"], ["1"]]  # example for binary encoded feature
     )
 
-    # We are using this bias config to configure clarify to detect bias based on the first feature in the featurized vector for Sex
-    data_bias_config = BiasConfig(
-        label_values_or_threshold=[15.0], facet_name=[8], facet_values_or_threshold=[[0.5]]
-    )
+    data_bias_data_config = DataConfig(
+    s3_data_input_path=step_process.properties.ProcessingOutputConfig.Outputs["train"].S3Output.S3Uri,
+    s3_output_path=Join(on='/', values=['s3:/', default_bucket, base_job_prefix, ExecutionVariables.PIPELINE_EXECUTION_ID, 'databiascheckstep']),
+    label=0,
+    dataset_type="text/csv",
+    s3_analysis_config_output_path=data_bias_analysis_cfg_output_path,
+)
+
 
     data_bias_check_config = DataBiasCheckConfig(
         data_config=data_bias_data_config,
@@ -504,30 +517,44 @@ step_process = ProcessingStep(
     model_bias_analysis_cfg_output_path = f"s3://{default_bucket}/{base_job_prefix}/modelbiascheckstep/analysis_cfg"
 
     model_bias_data_config = DataConfig(
-        s3_data_input_path=step_process.properties.ProcessingOutputConfig.Outputs["train"].S3Output.S3Uri,
-        s3_output_path=Join(on='/', values=['s3:/', default_bucket, base_job_prefix, ExecutionVariables.PIPELINE_EXECUTION_ID, 'modelbiascheckstep']),
-        s3_analysis_config_output_path=model_bias_analysis_cfg_output_path,
-        label=0,
-        dataset_type="text/csv",
+    s3_data_input_path=step_process.properties.ProcessingOutputConfig.Outputs["train"].S3Output.S3Uri,
+    s3_output_path=Join(
+        on="/",
+        values=[
+            "s3:/",
+            default_bucket,
+            base_job_prefix,
+            ExecutionVariables.PIPELINE_EXECUTION_ID,
+            "modelbiascheckstep",
+        ],
+    ),
+    s3_analysis_config_output_path=model_bias_analysis_cfg_output_path,
+    label=0,               # column 0 = is_churn
+    dataset_type="text/csv",
     )
 
     model_config = ModelConfig(
         model_name=step_create_model.properties.ModelName,
         instance_count=1,
-        instance_type='ml.m5.large',
+        instance_type="ml.m5.large",
     )
 
-    # We are using this bias config to configure clarify to detect bias based on the first feature in the featurized vector for Sex
+    # BiasConfig for model bias:
+    # - label_values_or_threshold=[1] → treat "is_churn = 1" as the positive outcome.
+    # - facet_name should be the column index of the sensitive feature in the headerless CSV.
     model_bias_config = BiasConfig(
-        label_values_or_threshold=[15.0], facet_name=[8], facet_values_or_threshold=[[0.5]]
+        label_values_or_threshold=[1],  # positive class = churn
+        facet_name=[5],                 # TODO: set 5 to column index of your sensitive feature
+        # facet_values_or_threshold can be used similarly as in data_bias_config if needed.
     )
 
     model_bias_check_config = ModelBiasCheckConfig(
         data_config=model_bias_data_config,
         data_bias_config=model_bias_config,
         model_config=model_config,
-        model_predicted_label_config=ModelPredictedLabelConfig()
+        model_predicted_label_config=ModelPredictedLabelConfig(),  # defaults: threshold 0.5 for binary
     )
+
 
     model_bias_check_step = ClarifyCheckStep(
         name="ModelBiasCheckStep",
