@@ -456,18 +456,29 @@ step_process = ProcessingStep(
 
     # In this `QualityCheckStep` we calculate the baselines for statistics and constraints using the
     # predictions that the model generates from the test dataset (output from the TransformStep). We define
-    # the problem type as 'Regression' in the `ModelQualityCheckConfig` along with specifying the columns
+    # the problem type as 'Binary classification' in the `ModelQualityCheckConfig` along with specifying the columns
     # which represent the input and output. Since the dataset has no headers, `_c0`, `_c1` are auto-generated
     # header names that should be used in the `ModelQualityCheckConfig`.
 
     model_quality_check_config = ModelQualityCheckConfig(
-        baseline_dataset=step_transform.properties.TransformOutput.S3OutputPath,
-        dataset_format=DatasetFormat.csv(header=False),
-        output_s3_uri=Join(on='/', values=['s3:/', default_bucket, base_job_prefix, ExecutionVariables.PIPELINE_EXECUTION_ID, 'modelqualitycheckstep']),
-        problem_type='Regression',
-        inference_attribute='_c0',
-        ground_truth_attribute='_c1'
-    )
+    baseline_dataset=step_transform.properties.TransformOutput.S3OutputPath,
+    dataset_format=DatasetFormat.csv(header=False),
+    output_s3_uri=Join(
+        on='/',
+        values=[
+            's3:/',
+            default_bucket,
+            base_job_prefix,
+            ExecutionVariables.PIPELINE_EXECUTION_ID,
+            'modelqualitycheckstep',
+        ],
+    ),
+    problem_type='BinaryClassification',   # 👈 changed
+    inference_attribute='_c0',             # prediction column
+    ground_truth_attribute='_c1',          # label column
+)
+
+    
 
     model_quality_check_step = QualityCheckStep(
         name="ModelQualityCheckStep",
