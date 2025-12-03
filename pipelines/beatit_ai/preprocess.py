@@ -5,7 +5,30 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from common.utils import *
+# ---- Install wheel from S3 before importing utils ----
+import os
+import sys
+import subprocess
+
+WHL_S3 = "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
+LOCAL_WHL = "/tmp/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
+
+def install_whl_from_s3():
+    if not os.path.exists(LOCAL_WHL):
+        print(f"Downloading wheel from {WHL_S3} -> {LOCAL_WHL}")
+        subprocess.check_call(["aws", "s3", "cp", WHL_S3, LOCAL_WHL])
+    print("Installing wheel...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", LOCAL_WHL])
+
+try:
+    install_whl_from_s3()
+except Exception as e:
+    print("ERROR installing wheel:", e)
+    raise
+
+# ---- Now your original import works ----
+import common.utils as utils
+
 
 def parse_args():
     parser = argparse.ArgumentParser()

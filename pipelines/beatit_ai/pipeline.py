@@ -146,9 +146,6 @@ def get_pipeline(
         instance_count=processing_instance_count,
         base_job_name=f"{base_job_prefix}/sklearn-churn-preprocess",
         sagemaker_session=pipeline_session,
-        dependencies=[
-            "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities.whl"
-        ],
         role=role,
     )
 
