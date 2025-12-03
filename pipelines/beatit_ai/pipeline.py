@@ -158,7 +158,8 @@ def get_pipeline(
             ProcessingOutput(output_name="validation", source="/opt/ml/processing/validation"),
             ProcessingOutput(output_name="test", source="/opt/ml/processing/test"),
         ],
-        code=[os.path.join(BASE_DIR, "utils.py"), os.path.join(BASE_DIR, "preprocess.py")],
+        code="preprocess.py",
+        source_dir=os.path.join(BASE_DIR, "beatit_ai"),
         arguments=[
             "--raw-data-dir",
             "/opt/ml/processing/raw",
