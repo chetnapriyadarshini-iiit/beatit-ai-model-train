@@ -37,6 +37,10 @@ setuptools.setup(
     url=about["__url__"],
     license=about["__license__"],
     packages=setuptools.find_packages(),
+    package_data={
+        "pipelines.beatit_ai": ["*.py"],   # ship preprocess.py + utils.py
+    },
+
     include_package_data=True,
     python_requires=">=3.6",
     install_requires=required_packages,
