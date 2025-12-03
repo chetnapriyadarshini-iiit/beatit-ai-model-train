@@ -5,20 +5,28 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-# ---- Install wheel from S3 before importing utils ----
 import os
 import sys
+import boto3
 import subprocess
+from pathlib import Path
 
 WHL_S3 = "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
 LOCAL_WHL = "/tmp/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
 
 def install_whl_from_s3():
-    if not os.path.exists(LOCAL_WHL):
-        print(f"Downloading wheel from {WHL_S3} -> {LOCAL_WHL}")
-        subprocess.check_call(["aws", "s3", "cp", WHL_S3, LOCAL_WHL])
+    s3 = boto3.client("s3")
+
+    # parse s3://bucket/key into bucket + key
+    assert WHL_S3.startswith("s3://")
+    bucket, key = WHL_S3.replace("s3://", "").split("/", 1)
+
+    print(f"Downloading wheel from {bucket}/{key} -> {LOCAL_WHL}")
+    s3.download_file(bucket, key, LOCAL_WHL)
+
     print("Installing wheel...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", LOCAL_WHL])
+    print("Wheel successfully installed.")
 
 try:
     install_whl_from_s3()
