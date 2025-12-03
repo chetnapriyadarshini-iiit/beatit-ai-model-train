@@ -4,3 +4,8 @@
 .tox
 __pycache__
 .sagemaker-code-config
+pipelines/.ipynb_checkpoints/*
+pipelines/.ipynb_checkpoints/*
+pipelines/beatit_ai/.ipynb_checkpoints/*
+pipelines/beatit_ai/.ipynb_checkpoints/*
+.ipynb_checkpoints/*
