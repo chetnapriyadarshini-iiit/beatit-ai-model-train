@@ -158,8 +158,10 @@ def get_pipeline(
             ProcessingOutput(output_name="validation", source="/opt/ml/processing/validation"),
             ProcessingOutput(output_name="test", source="/opt/ml/processing/test"),
         ],
+        dependencies=[
+            "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities.whl"
+        ],
         code="preprocess.py",
-        source_dir=BASE_DIR,
         arguments=[
             "--raw-data-dir",
             "/opt/ml/processing/raw",
