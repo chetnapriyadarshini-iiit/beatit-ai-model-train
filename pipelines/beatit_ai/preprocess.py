@@ -5,14 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-
-current_dir = os.path.dirname(os.path.realpath(__file__))
-print("### DEBUG: Inside preprocess.py")
-print("### CURRENT_DIR:", current_dir)
-print("### FILES IN CURRENT_DIR:", os.listdir(current_dir))
-print("### SYS.PATH HEAD:", sys.path[:5])
-
-import utils
+from common.utils import *
 
 def parse_args():
     parser = argparse.ArgumentParser()
