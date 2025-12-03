@@ -159,7 +159,7 @@ def get_pipeline(
             ProcessingOutput(output_name="test", source="/opt/ml/processing/test"),
         ],
         code="preprocess.py",
-        source_dir= BASE_DIR,
+        source_dir=BASE_DIR,
         arguments=[
             "--raw-data-dir",
             "/opt/ml/processing/raw",
