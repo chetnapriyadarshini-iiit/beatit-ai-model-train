@@ -90,7 +90,7 @@ def get_pipeline(
     base_job_prefix="BeatItAI-Churn",
     processing_instance_type="ml.m5.xlarge",
     training_instance_type="ml.m5.xlarge",
-    sagemaker_project_name=BeatIT_AI,
+    sagemaker_project_name="BeatIT_AI Customer Churn project",
 ):
     """
     Build and return a SageMaker Pipeline object configured for churn train/eval/register.
