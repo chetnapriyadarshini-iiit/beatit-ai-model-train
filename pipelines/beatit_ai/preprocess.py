@@ -14,6 +14,7 @@ from pathlib import Path
 WHL_S3 = "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
 LOCAL_WHL = "/tmp/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
 
+
 def install_whl_from_s3():
     s3 = boto3.client("s3")
 

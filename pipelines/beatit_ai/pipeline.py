@@ -116,18 +116,29 @@ def get_pipeline(
     # toggles for checks/baseline registration
     skip_check_data_quality = ParameterBoolean(name="SkipDataQualityCheck", default_value=False)
     register_new_baseline_data_quality = ParameterBoolean(name="RegisterNewDataQualityBaseline", default_value=False)
+    supplied_baseline_statistics_data_quality = ParameterString(name="DataQualitySuppliedStatistics", default_value='')
+    supplied_baseline_constraints_data_quality = ParameterString(name="DataQualitySuppliedConstraints", default_value='')
+
 
     skip_check_data_bias = ParameterBoolean(name="SkipDataBiasCheck", default_value=False)
     register_new_baseline_data_bias = ParameterBoolean(name="RegisterNewDataBiasBaseline", default_value=False)
+    supplied_baseline_constraints_data_bias = ParameterString(name="DataBiasSuppliedBaselineConstraints", default_value='')
 
     skip_check_model_quality = ParameterBoolean(name="SkipModelQualityCheck", default_value=False)
     register_new_baseline_model_quality = ParameterBoolean(name="RegisterNewModelQualityBaseline", default_value=False)
+    supplied_baseline_statistics_model_quality = ParameterString(name="ModelQualitySuppliedStatistics", default_value='')
+    supplied_baseline_constraints_model_quality = ParameterString(name="ModelQualitySuppliedConstraints", default_value='')
+
 
     skip_check_model_bias = ParameterBoolean(name="SkipModelBiasCheck", default_value=False)
     register_new_baseline_model_bias = ParameterBoolean(name="RegisterNewModelBiasBaseline", default_value=False)
+    supplied_baseline_constraints_model_bias = ParameterString(name="ModelBiasSuppliedBaselineConstraints", default_value='')
+
 
     skip_check_model_explainability = ParameterBoolean(name="SkipModelExplainabilityCheck", default_value=False)
     register_new_baseline_model_explainability = ParameterBoolean(name="RegisterNewModelExplainabilityBaseline", default_value=False)
+    supplied_baseline_constraints_model_explainability = ParameterString(name="ModelExplainabilitySuppliedBaselineConstraints", default_value='')
+
 
     # ---------- placeholders S3 paths (you uploaded tiny {} files there) ----------
     placeholders_prefix = f"s3://{default_bucket}/{base_job_prefix}/placeholders"
@@ -183,6 +194,7 @@ def get_pipeline(
     )
 
     # ---------- Data Quality Check (QualityCheckStep) ----------
+    
     data_quality_check_config = DataQualityCheckConfig(
         baseline_dataset=step_process.properties.ProcessingOutputConfig.Outputs["train"].S3Output.S3Uri,
         dataset_format=DatasetFormat.csv(header=False, output_columns_position="START"),
@@ -196,8 +208,8 @@ def get_pipeline(
         quality_check_config=data_quality_check_config,
         check_job_config=check_job_config,
         # supply the placeholders you uploaded
-        supplied_baseline_statistics=DATA_QUALITY_STATS,
-        supplied_baseline_constraints=DATA_QUALITY_CONSTRAINTS,
+        supplied_baseline_statistics=supplied_baseline_statistics_data_quality,
+        supplied_baseline_constraints=supplied_baseline_constraints_data_quality,
         model_package_group_name=model_package_group_name,
     )
 
@@ -228,7 +240,7 @@ def get_pipeline(
         check_job_config=check_job_config,
         skip_check=skip_check_data_bias,
         register_new_baseline=register_new_baseline_data_bias,
-        supplied_baseline_constraints=DATA_BIAS_CONSTRAINTS,
+        supplied_baseline_constraints=supplied_baseline_constraints_data_bias,
         model_package_group_name=model_package_group_name,
     )
 
@@ -334,8 +346,8 @@ def get_pipeline(
         register_new_baseline=register_new_baseline_model_quality,
         quality_check_config=model_quality_check_config,
         check_job_config=check_job_config,
-        supplied_baseline_statistics=MODEL_QUALITY_STATS,
-        supplied_baseline_constraints=MODEL_QUALITY_CONSTRAINTS,
+        supplied_baseline_statistics=supplied_baseline_statistics_model_quality,
+        supplied_baseline_constraints=supplied_baseline_constraints_model_quality,
         model_package_group_name=model_package_group_name,
     )
 
@@ -367,7 +379,7 @@ def get_pipeline(
         check_job_config=check_job_config,
         skip_check=skip_check_model_bias,
         register_new_baseline=register_new_baseline_model_bias,
-        supplied_baseline_constraints=MODEL_BIAS_CONSTRAINTS,
+        supplied_baseline_constraints=supplied_baseline_constraints_model_bias,
         model_package_group_name=model_package_group_name,
     )
 
@@ -396,7 +408,7 @@ def get_pipeline(
         check_job_config=check_job_config,
         skip_check=skip_check_model_explainability,
         register_new_baseline=register_new_baseline_model_explainability,
-        supplied_baseline_constraints=MODEL_EXPLAINABILITY_CONSTRAINTS,
+        supplied_baseline_constraints=supplied_baseline_constraints_model_explainability,
         model_package_group_name=model_package_group_name,
     )
 
