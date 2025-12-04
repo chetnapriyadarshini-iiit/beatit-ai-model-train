@@ -90,7 +90,7 @@ def get_pipeline(
     base_job_prefix="BeatItAI-Churn",
     processing_instance_type="ml.m5.xlarge",
     training_instance_type="ml.m5.xlarge",
-    sagemaker_project_name=None,
+    sagemaker_project_name=BeatIT_AI,
 ):
     """
     Build and return a SageMaker Pipeline object configured for churn train/eval/register.
@@ -480,16 +480,28 @@ def get_pipeline(
             training_instance_type,
             model_approval_status,
             input_data,
+            
             skip_check_data_quality,
             register_new_baseline_data_quality,
+            supplied_baseline_statistics_data_quality,
+            supplied_baseline_constraints_data_quality,
+            
             skip_check_data_bias,
             register_new_baseline_data_bias,
+            supplied_baseline_constraints_data_bias,
+            
             skip_check_model_quality,
             register_new_baseline_model_quality,
+            supplied_baseline_statistics_model_quality,
+            supplied_baseline_constraints_model_quality,
+            
             skip_check_model_bias,
             register_new_baseline_model_bias,
+            supplied_baseline_constraints_model_bias,
+            
             skip_check_model_explainability,
             register_new_baseline_model_explainability,
+            supplied_baseline_constraints_model_explainability
         ],
         steps=[
             step_process,
