@@ -20,7 +20,6 @@ from sklearn.metrics import accuracy_score
 import lightgbm as lgb
 import sklearn
 from sklearn.preprocessing import StandardScaler
-import pickle 
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import StratifiedKFold
 from skopt import BayesSearchCV # run pip install scikit-optimize
