@@ -99,7 +99,7 @@ def build_feature_table(train, members, transactions, user_logs):
     new_df = utils.fix_time_in_df(
         members, "registration_init_time", expand=True
     )
-    pd.concat([members, new_df], axis=1)
+    members = pd.concat([members, new_df], axis=1)
     members["registration_init_time"] = utils.fix_time_in_df(members, "registration_init_time", expand=False)
     #members.drop("registration_init_time", axis=1)
 
@@ -112,13 +112,13 @@ def build_feature_table(train, members, transactions, user_logs):
     new_df  = utils.fix_time_in_df(
         transactions, "transaction_date", expand=True
     )
-    pd.concat([transactions,new_df], axis=1)
+    transactions = pd.concat([transactions,new_df], axis=1)
     transactions.drop("transaction_date", axis=1)
     
     new_df_2 = utils.fix_time_in_df(
         transactions, "membership_expire_date", expand=True
     )
-    pd.concat([transactions, new_df_2], axis=1)
+    transactions = pd.concat([transactions, new_df_2], axis=1)
     transactions.drop("membership_expire_date", axis=1)
 
     transactions["discount"] = utils.get_two_column_operations(
@@ -192,7 +192,7 @@ def build_feature_table(train, members, transactions, user_logs):
     ################################ User logs #########################################
 
     new_df = utils.fix_time_in_df(user_logs, column_name="date", expand=True)
-    pd.concat([user_logs, new_df], axis=1)
+    user_logs = pd.concat([user_logs, new_df], axis=1)
     user_logs.drop("date", axis=1)
 
     user_logs_transformed = utils.get_fix_skew_with_log(
