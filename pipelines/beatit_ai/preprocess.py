@@ -100,7 +100,7 @@ def build_feature_table(train, members, transactions, user_logs):
         members, "registration_init_time", expand=True
     )
     members = pd.concat([members, new_df], axis=1)
-    members["registration_init_time"] = utils.fix_time_in_df(members, "registration_init_time", expand=False)
+    members["registration_init_time_d"] = utils.fix_time_in_df(members, "registration_init_time", expand=False)
     #members.drop("registration_init_time", axis=1)
 
     average_age = round(members["bd"].mean(), 2)
@@ -237,7 +237,7 @@ def build_feature_table(train, members, transactions, user_logs):
     train_df_final = utils.get_merge(train_df_v02, user_logs_final, on=key, axis=1, how="inner")
 
     train_df_final["registration_duration"] = utils.get_two_column_operations(
-        train_df_final, "membership_expire_date_max", "registration_init_time", "-"
+        train_df_final, "membership_expire_date_max", "registration_init_time_d", "-"
     )
     train_df_final["registration_duration"] = utils.get_timedelta_division(
         train_df_final, "registration_duration", td_type="D"
@@ -246,6 +246,7 @@ def build_feature_table(train, members, transactions, user_logs):
         train_df_final, "registration_duration", data_type="int"
     )
     train_df_final.drop("registration_init_time", axis=1)
+    train_df_final.drop("registration_init_time_d", axis=1)
     train_df_final.drop("msno", axis=1)
 
     # Optional: write a silver Parquet snapshot directly to S3
