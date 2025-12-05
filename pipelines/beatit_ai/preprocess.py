@@ -101,7 +101,7 @@ def build_feature_table(train, members, transactions, user_logs):
         members, "registration_init_time", expand=True
     )
     pd.concat([members, new_df], axis=1)
-    members.drop("registration_init_time", axis=1)
+    #members.drop("registration_init_time", axis=1)
 
     average_age = round(members["bd"].mean(), 2)
     condition = f"{average_age} if (x <= 0 or x > 100) else x"
@@ -245,6 +245,8 @@ def build_feature_table(train, members, transactions, user_logs):
     train_df_final["registration_duration"] = utils.get_convert_column_dtype(
         train_df_final, "registration_duration", data_type="int"
     )
+    train_df_final.drop("registration_init_time", axis=1)
+    train_df_final.drop("msno", axis=1)
 
     # Optional: write a silver Parquet snapshot directly to S3
     # Be sure pyarrow/fastparquet + s3fs are installed if you keep this.
@@ -252,20 +254,20 @@ def build_feature_table(train, members, transactions, user_logs):
     # train_df_final.to_parquet(s3_parquet_path, index=False)
 
         # Ensure label and sensitive feature have fixed positions
-    label_col = "is_churn"
-    sensitive_col = "registered_via"
+    #label_col = "is_churn"
+    #sensitive_col = "registered_via"
 
     # Start from all columns
-    cols = list(train_df_final.columns)
+    #cols = list(train_df_final.columns)
 
     # Remove label and sensitive feature from the list (if present)
-    cols = [c for c in cols if c not in [label_col, sensitive_col]]
+    #cols = [c for c in cols if c not in [label_col, sensitive_col]]
 
     # Final column order:
     # 0: is_churn (label)
     # 1: registered_via (sensitive feature)
     # 2..N: rest of features
-    train_df_final = train_df_final[[label_col, sensitive_col] + cols]
+    #train_df_final = train_df_final[[label_col, sensitive_col] + cols]
 
     return train_df_final
 
