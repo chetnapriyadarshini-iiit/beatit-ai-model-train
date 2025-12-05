@@ -96,7 +96,7 @@ def build_feature_table(train, members, transactions, user_logs):
 
     members["registered_via"] = utils.get_convert_column_dtype(members, "registered_via", data_type="str")
     members["city"] = utils.get_convert_column_dtype(members, "city", data_type="str")
-
+    members["registration_init_time"] = utils.fix_time_in_df(members, "registration_init_time", expand=False)
     new_df = utils.fix_time_in_df(
         members, "registration_init_time", expand=True
     )
@@ -118,7 +118,7 @@ def build_feature_table(train, members, transactions, user_logs):
     new_df_2 = utils.fix_time_in_df(
         transactions, "membership_expire_date", expand=True
     )
-    pd.concat([transactions, new_df2], axis=1)
+    pd.concat([transactions, new_df_2], axis=1)
     transactions.drop("membership_expire_date", axis=1)
 
     transactions["discount"] = utils.get_two_column_operations(
