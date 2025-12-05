@@ -97,9 +97,11 @@ def build_feature_table(train, members, transactions, user_logs):
     members["registered_via"] = utils.get_convert_column_dtype(members, "registered_via", data_type="str")
     members["city"] = utils.get_convert_column_dtype(members, "city", data_type="str")
 
-    members["registration_init_time"] = utils.fix_time_in_df(
-        members, "registration_init_time", expand=False
+    new_df = utils.fix_time_in_df(
+        members, "registration_init_time", expand=True
     )
+    pd.concat([members, new_df], axis=1)
+    members.drop("registration_init_time", axis=1)
 
     average_age = round(members["bd"].mean(), 2)
     condition = f"{average_age} if (x <= 0 or x > 100) else x"
@@ -107,12 +109,17 @@ def build_feature_table(train, members, transactions, user_logs):
 
     """################ Transactions Feature Engineering ###############################"""
 
-    transactions["transaction_date"] = utils.fix_time_in_df(
-        transactions, "transaction_date", expand=False
+    new_df  = utils.fix_time_in_df(
+        transactions, "transaction_date", expand=True
     )
-    transactions["membership_expire_date"] = utils.fix_time_in_df(
-        transactions, "membership_expire_date", expand=False
+    pd.concat([transactions,new_df], axis=1)
+    transactions.drop("transaction_date", axis=1)
+    
+    new_df_2 = utils.fix_time_in_df(
+        transactions, "membership_expire_date", expand=True
     )
+    pd.concat([transactions, new_df2], axis=1)
+    transactions.drop("membership_expire_date", axis=1)
 
     transactions["discount"] = utils.get_two_column_operations(
         transactions, "plan_list_price", "actual_amount_paid", "-"
@@ -184,7 +191,9 @@ def build_feature_table(train, members, transactions, user_logs):
 
     ################################ User logs #########################################
 
-    user_logs["date"] = utils.fix_time_in_df(user_logs, column_name="date", expand=False)
+    new_df = utils.fix_time_in_df(user_logs, column_name="date", expand=True)
+    pd.concat([user_logs, new_df], axis=1)
+    user_logs.drop("date", axis=1)
 
     user_logs_transformed = utils.get_fix_skew_with_log(
         user_logs,
