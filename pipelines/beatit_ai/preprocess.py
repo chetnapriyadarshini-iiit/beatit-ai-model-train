@@ -96,11 +96,11 @@ def build_feature_table(train, members, transactions, user_logs):
 
     members["registered_via"] = utils.get_convert_column_dtype(members, "registered_via", data_type="str")
     members["city"] = utils.get_convert_column_dtype(members, "city", data_type="str")
-    members["registration_init_time"] = utils.fix_time_in_df(members, "registration_init_time", expand=False)
     new_df = utils.fix_time_in_df(
         members, "registration_init_time", expand=True
     )
     pd.concat([members, new_df], axis=1)
+    members["registration_init_time"] = utils.fix_time_in_df(members, "registration_init_time", expand=False)
     #members.drop("registration_init_time", axis=1)
 
     average_age = round(members["bd"].mean(), 2)
