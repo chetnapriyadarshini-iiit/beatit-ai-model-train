@@ -88,8 +88,8 @@ def fix_time_in_df(dataframe, column_name, expand=False):
         #Extracting the date time year component
         dataframe_new[f"{column_name}_month"] = pd.DatetimeIndex(dataframe_new[column_name]).month
         #Extracting the date time year component
-        dataframe_new[f"{column_name}_day"] = pd.DatetimeIndex(dataframe_new[column_name]).day_name()
-      
+        dataframe_new[f"{column_name}_day"] = pd.DatetimeIndex(dataframe_new[column_name]).day
+        dataframe_new[f"{column_name}_dayOfWeek"] = pd.DatetimeIndex(dataframe_new[column_name]).dayofweek
         return dataframe_new
     
 
