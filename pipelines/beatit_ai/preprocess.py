@@ -99,11 +99,13 @@ def build_feature_table(train, members, transactions, user_logs):
     new_df = utils.fix_time_in_df(
         members, "registration_init_time", expand=True
     )
-    new_df.drop("registration_init_time", axis=1)
-    members = pd.concat([members, new_df], axis=1)
     members["registration_init_time"] = utils.fix_time_in_df(
         members, "registration_init_time", expand=False
     )  #Get this in proper date time format for time_date delta operations later
+
+    members = pd.concat([members, new_df], axis=1)
+    unique_cols = members.columns.drop_duplicates()
+    members = members[unique_cols]
 
     average_age = round(members["bd"].mean(), 2)
     condition = f"{average_age} if (x <= 0 or x > 100) else x"
