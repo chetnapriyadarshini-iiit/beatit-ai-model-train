@@ -96,13 +96,14 @@ def build_feature_table(train, members, transactions, user_logs):
 
     members["registered_via"] = utils.get_convert_column_dtype(members, "registered_via", data_type="str")
     members["city"] = utils.get_convert_column_dtype(members, "city", data_type="str")
-    members["registration_init_time_d"] = members["registration_init_time"]
     new_df = utils.fix_time_in_df(
         members, "registration_init_time", expand=True
     )
+    new_df.drop("registration_init_time", axis=1)
     members = pd.concat([members, new_df], axis=1)
-    members["registration_init_time_d"] = utils.fix_time_in_df(members, "registration_init_time_d", expand=False)
-    #members.drop("registration_init_time", axis=1)
+    members["registration_init_time"] = utils.fix_time_in_df(
+        members, "registration_init_time", expand=False
+    )  #Get this in proper date time format for time_date delta operations later
 
     average_age = round(members["bd"].mean(), 2)
     condition = f"{average_age} if (x <= 0 or x > 100) else x"
@@ -113,12 +114,14 @@ def build_feature_table(train, members, transactions, user_logs):
     new_df  = utils.fix_time_in_df(
         transactions, "transaction_date", expand=True
     )
+    new_df.drop("transaction_date", axis=1)
     transactions = pd.concat([transactions,new_df], axis=1)
     transactions.drop("transaction_date", axis=1)
     
     new_df_2 = utils.fix_time_in_df(
         transactions, "membership_expire_date", expand=True
     )
+    new_df_2.drop("membership_expire_date", axis=1)
     transactions = pd.concat([transactions, new_df_2], axis=1)
     transactions.drop("membership_expire_date", axis=1)
 
@@ -193,6 +196,7 @@ def build_feature_table(train, members, transactions, user_logs):
     ################################ User logs #########################################
 
     new_df = utils.fix_time_in_df(user_logs, column_name="date", expand=True)
+    new_df.drop("date", axis=1)
     user_logs = pd.concat([user_logs, new_df], axis=1)
     user_logs.drop("date", axis=1)
 
@@ -238,7 +242,7 @@ def build_feature_table(train, members, transactions, user_logs):
     train_df_final = utils.get_merge(train_df_v02, user_logs_final, on=key, axis=1, how="inner")
 
     train_df_final["registration_duration"] = utils.get_two_column_operations(
-        train_df_final, "membership_expire_date_max", "registration_init_time_d", "-"
+        train_df_final, "membership_expire_date_max", "registration_init_time", "-"
     )
     train_df_final["registration_duration"] = utils.get_timedelta_division(
         train_df_final, "registration_duration", td_type="D"
@@ -247,7 +251,6 @@ def build_feature_table(train, members, transactions, user_logs):
         train_df_final, "registration_duration", data_type="int"
     )
     train_df_final.drop("registration_init_time", axis=1)
-    train_df_final.drop("registration_init_time_d", axis=1)
     train_df_final.drop("msno", axis=1)
 
     # Optional: write a silver Parquet snapshot directly to S3
