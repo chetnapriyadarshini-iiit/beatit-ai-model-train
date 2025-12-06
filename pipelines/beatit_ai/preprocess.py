@@ -104,12 +104,17 @@ def build_feature_table(train, members, transactions, user_logs):
         members, "registration_init_time", expand=False
     )  #Get this in proper date time format for time_date delta operations later
 
-    members = pd.concat([members, new_df], axis=1)
-    print(members.columns)
+    # ensure bd is numeric
+    members['bd'] = pd.to_numeric(members['bd'], errors='coerce')
+    # compute average only from valid ages
+    valid_mask = (members['bd'] > 0) & (members['bd'] <= 100)
+    average_age = int(round(members.loc[valid_mask, 'bd'].mean() or 0, 0))
+    # replace invalid / missing ages with the average (and make integer)
+    members['bd'] = members['bd'].where(valid_mask, other=average_age).fillna(average_age).astype(int)
 
-    average_age = round(members["bd"].mean(), 2)
-    condition = f"{average_age} if (x <= 0 or x > 100) else x"
-    members["bd"] = utils.get_apply_condiiton_on_column(members, "bd", condition)
+    members = pd.concat([members, new_df], axis=1)
+    #print(members.columns)
+
 
     """################ Transactions Feature Engineering ###############################"""
 
