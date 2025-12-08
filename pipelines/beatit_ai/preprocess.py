@@ -100,40 +100,24 @@ def build_feature_table(train, members, transactions, user_logs):
     members = utils.fix_time_in_df(
         members, "registration_init_time", expand=True
     )
-    #new_df = new_df.drop("registration_init_time", axis=1)
-    #members = pd.concat([members, new_df], axis=1)
     members["registration_init_time"] = utils.fix_time_in_df(members, "registration_init_time", expand=False)
-    #members.drop("registration_init_time", axis=1)
-
-    # Change this line:
-    # members["bd"] = pd.to_numeric(members["bd"], errors="coerce")
-
-    # To use .loc to ensure correct assignment and access the column as a Series:
-    #members.loc[:, "bd"] = pd.to_numeric(members["bd"], errors="coerce")
-    #print(members[["bd"]].dtypes)
 
     average_age = round(members["bd"].mean(), 0)
     condition = f"{average_age} if (x <= 0 or x > 100) else x"
     members["bd"] = utils.get_apply_condiiton_on_column(members, "bd", condition)
-    #members["bd"] = np.where((members["bd"] <= 0) | (members["bd"] > 100),
-    #average_age,members["bd"])
 
     """################ Transactions Feature Engineering ###############################"""
 
     transactions  = utils.fix_time_in_df(
         transactions, "transaction_date", expand=True
     )
-    #new_df = new_df.drop("transaction_date", axis=1)
     
-    print(transactions.columns)
+    #print(transactions.columns)
     transactions = utils.fix_time_in_df(
         transactions, "membership_expire_date", expand=True
     )
-    #new_df_2 = new_df_2.drop("membership_expire_date", axis=1)
-    #transactions = pd.concat([transactions, new_df_2], axis=1)
-    #transactions = pd.concat([transactions,new_df], axis=1)
     
-    print(transactions.columns[transactions.columns.duplicated()])
+    #print(transactions.columns[transactions.columns.duplicated()])
 
     transactions["discount"] = utils.get_two_column_operations(
         transactions, "plan_list_price", "actual_amount_paid", "-"
@@ -242,6 +226,7 @@ def build_feature_table(train, members, transactions, user_logs):
     user_logs_transformed_dates.columns = ["msno", "login_freq", "last_login"]
 
     user_logs_final = utils.get_merge(user_logs_transformed_base, user_logs_transformed_dates, on=key)
+    print(user_logs_final.columns)
 
     """ ########################### Final joins & features ################################# """
 
@@ -269,16 +254,13 @@ def build_feature_table(train, members, transactions, user_logs):
     train_df_final = train_df_final.drop(["registration_init_time", "msno", "date"], axis=1)
     train_df_final = train_df_final.drop(date_cols, axis=1)
     print(train_df_final.columns)
-    #transactions = transactions.drop("transaction_date", axis=1)
-    #transactions = transactions.drop("membership_expire_date", axis=1)
-    #new_df = new_df.drop("date", axis=1)
 
     # Optional: write a silver Parquet snapshot directly to S3
     # Be sure pyarrow/fastparquet + s3fs are installed if you keep this.
     # s3_parquet_path = "s3://beatit-ai-data/data-engineering/silver/train_df_final.parquet"
     # train_df_final.to_parquet(s3_parquet_path, index=False)
 
-        # Ensure label and sensitive feature have fixed positionsS
+    # Ensure label and sensitive feature have fixed positionsS
     label_col = "is_churn"
     sensitive_col = "registered_via"
 
