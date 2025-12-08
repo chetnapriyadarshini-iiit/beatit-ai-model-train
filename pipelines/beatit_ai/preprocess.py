@@ -251,7 +251,7 @@ def build_feature_table(train, members, transactions, user_logs):
         "transaction_date_max"]
 
     train_df_final = utils.transform_date_cols_for_xgboost(train_df_final, date_cols)
-    train_df_final = train_df_final.drop(["registration_init_time", "msno", "date"], axis=1)
+    train_df_final = train_df_final.drop(["registration_init_time", "msno"], axis=1)
     train_df_final = train_df_final.drop(date_cols, axis=1)
     print(train_df_final.columns)
 
