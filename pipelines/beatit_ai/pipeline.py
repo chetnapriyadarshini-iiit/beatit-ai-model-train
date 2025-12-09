@@ -33,7 +33,6 @@ from sagemaker.workflow.parameters import (
     ParameterString,
 )
 
-from sagemaker.sklearn.processing import SKLearnProcessor
 from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep, TransformStep
@@ -326,7 +325,7 @@ def get_pipeline(
         data=transform_inputs.data,
         input_filter="$[1:]",  # features only (label is column 0)
         join_source="Input",
-        output_filter="$[0,-1]",  # prediction, original label
+        output_filter="$[-1,0]", # prediction first, true label second
         content_type="text/csv",
         split_type="Line",
     )
@@ -416,14 +415,13 @@ def get_pipeline(
 
     # ---------- Evaluation step ----------
 
-    script_eval = ScriptProcessor(
-        image_uri=image_uri,  # ✅ XGBoost image (has xgboost installed)
-        command=["python3"],
-        instance_type=processing_instance_type,
-        instance_count=1,
-        base_job_name=f"{base_job_prefix}/script-churn-eval",
-        sagemaker_session=pipeline_session,
-        role=role,
+    script_eval = SKLearnProcessor(
+    framework_version="0.23-1",
+    instance_type=processing_instance_type,
+    instance_count=1,
+    base_job_name=f"{base_job_prefix}/script-churn-eval",
+    sagemaker_session=pipeline_session,
+    role=role,
     )
 
     step_args = script_eval.run(
@@ -502,8 +500,8 @@ def get_pipeline(
             processing_instance_count,
             training_instance_type,
             model_approval_status,
-            input_data
-        """    
+            input_data,
+            
             skip_check_data_quality,
             register_new_baseline_data_quality,
             supplied_baseline_statistics_data_quality,
@@ -524,18 +522,18 @@ def get_pipeline(
             
             skip_check_model_explainability,
             register_new_baseline_model_explainability,
-            supplied_baseline_constraints_model_explainability"""
+            supplied_baseline_constraints_model_explainability
         ],
         steps=[
             step_process,
-            #data_quality_check_step,
-            #data_bias_check_step,
+            data_quality_check_step,
+            data_bias_check_step,
             step_train,
             step_create_model,
             step_transform,
-            #model_quality_check_step,
-            #model_bias_check_step,
-            #model_explainability_check_step,
+            model_quality_check_step,
+            model_bias_check_step,
+            model_explainability_check_step,
             step_eval,
             step_cond,
         ],

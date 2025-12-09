@@ -1,114 +1,79 @@
 import os
 import json
-import tarfile
-
 import pandas as pd
+
 from sklearn.metrics import roc_auc_score, accuracy_score, f1_score
-import xgboost as xgb
 
 
-def load_model(model_dir: str):
+def load_transform_output(transform_dir: str):
     """
-    Loads the XGBoost model from the model.tar.gz artifact.
+    Loads Batch Transform output CSVs.
+
+    Expected format per row:
+        prediction, true_label
     """
-    model_tar_path = None
+    files = [
+        os.path.join(transform_dir, f)
+        for f in os.listdir(transform_dir)
+        if f.endswith(".csv")
+    ]
 
-    # Find model.tar.gz
-    for fname in os.listdir(model_dir):
-        if fname.endswith(".tar.gz"):
-            model_tar_path = os.path.join(model_dir, fname)
-            break
-
-    if model_tar_path is None:
-        raise FileNotFoundError(f"No .tar.gz model artifact found in {model_dir}")
-
-    # Extract
-    with tarfile.open(model_tar_path) as tar:
-        tar.extractall(path=model_dir)
-
-    # In SageMaker XGBoost container, the model is usually saved as 'xgboost-model'
-    model_file = os.path.join(model_dir, "xgboost-model")
-    if not os.path.exists(model_file):
-        raise FileNotFoundError(f"xgboost-model not found in {model_dir} after extraction")
-
-    booster = xgb.Booster()
-    booster.load_model(model_file)
-    return booster
-
-
-def load_test_data(test_dir: str):
-    """
-    Loads the test.csv written by preprocess.py.
-
-    Assumes:
-    - headerless CSV
-    - first column = label 'is_churn'
-    - remaining columns = features
-    """
-    test_path = os.path.join(test_dir, "test.csv")
-    if not os.path.exists(test_path):
-        # Fallback: list directory contents to help debug
+    if not files:
         raise FileNotFoundError(
-            f"test.csv not found in {test_dir}. Files: {os.listdir(test_dir)}"
+            f"No transform output CSV files found in {transform_dir}"
         )
 
-    df = pd.read_csv(test_path, header=None)
-    y = df.iloc[:, 0]        # label
-    X = df.iloc[:, 1:]       # features
-    return X, y
+    print(f"[evaluate] Found transform files: {files}")
 
+    dfs = [pd.read_csv(f, header=None) for f in files]
+    df = pd.concat(dfs, ignore_index=True)
 
-def evaluate(model_dir: str, test_dir: str, output_dir: str):
-    """
-    Runs evaluation and writes metrics to evaluation.json in the format
-    expected by the SageMaker Pipeline.
-    """
-    print("Loading model...")
-    booster = load_model(model_dir)
+    if df.shape[1] != 2:
+        raise ValueError(
+            f"Expected 2 columns (prediction, label), but got {df.shape[1]}"
+        )
 
-    print("Loading test data...")
-    X_test, y_test = load_test_data(test_dir)
+    y_pred_proba = df.iloc[:, 0]
+    y_true = df.iloc[:, 1]
 
-    print("Running predictions...")
-    dtest = xgb.DMatrix(X_test)
-    y_pred_proba = booster.predict(dtest)        # probabilities for class 1
-    y_pred_label = (y_pred_proba >= 0.5).astype(int)
+    return y_true, y_pred_proba
+
+def evaluate(transform_dir: str, output_dir: str):
+    print(f"[evaluate] transform_dir={transform_dir}")
+    print(f"[evaluate] output_dir={output_dir}")
+
+    y_true, y_pred_proba = load_transform_output(transform_dir)
 
     print("Computing metrics...")
-    auc = roc_auc_score(y_test, y_pred_proba)
-    acc = accuracy_score(y_test, y_pred_label)
-    f1 = f1_score(y_test, y_pred_label)
+    y_pred_label = (y_pred_proba >= 0.5).astype(int)
 
-    # Build evaluation report
+    auc = roc_auc_score(y_true, y_pred_proba)
+    acc = accuracy_score(y_true, y_pred_label)
+    f1 = f1_score(y_true, y_pred_label)
+
     report = {
         "binary_classification_metrics": {
-            "auc": {
-                "value": auc,
-            },
-            "accuracy": {
-                "value": acc,
-            },
-            "f1": {
-                "value": f1,
-            },
+            "auc": {"value": float(auc)},
+            "accuracy": {"value": float(acc)},
+            "f1": {"value": float(f1)},
         }
     }
 
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "evaluation.json")
+
     with open(output_path, "w") as f:
         json.dump(report, f)
 
     print(f"Wrote evaluation report to {output_path}")
     print(json.dumps(report, indent=2))
-
+    
 
 def main():
-    model_dir = "/opt/ml/processing/model"
-    test_dir = "/opt/ml/processing/test"
+    transform_dir = "/opt/ml/processing/transform"
     output_dir = "/opt/ml/processing/evaluation"
 
-    evaluate(model_dir, test_dir, output_dir)
+    evaluate(transform_dir, output_dir)
 
 
 if __name__ == "__main__":
