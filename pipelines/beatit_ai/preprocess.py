@@ -88,6 +88,7 @@ def build_feature_table(train, members, transactions, user_logs):
     """
     key = "msno"
 
+
     """################################### Members ##########################################"""
 
     members["gender"] = utils.get_fill_na_dataframe(members, "gender", value="others")
@@ -96,41 +97,27 @@ def build_feature_table(train, members, transactions, user_logs):
 
     members["registered_via"] = utils.get_convert_column_dtype(members, "registered_via", data_type="str")
     members["city"] = utils.get_convert_column_dtype(members, "city", data_type="str")
-    new_df = utils.fix_time_in_df(
+    members = utils.fix_time_in_df(
         members, "registration_init_time", expand=True
     )
-    new_df.drop("registration_init_time", axis=1)
-    members["registration_init_time"] = utils.fix_time_in_df(
-        members, "registration_init_time", expand=False
-    )  #Get this in proper date time format for time_date delta operations later
+    members["registration_init_time"] = utils.fix_time_in_df(members, "registration_init_time", expand=False)
 
-    # ensure bd is numeric
-    members['bd'] = pd.to_numeric(members['bd'], errors='coerce')
-    # compute average only from valid ages
-    valid_mask = (members['bd'] > 0) & (members['bd'] <= 100)
-    average_age = int(round(members.loc[valid_mask, 'bd'].mean() or 0, 0))
-    # replace invalid / missing ages with the average (and make integer)
-    members['bd'] = members['bd'].where(valid_mask, other=average_age).fillna(average_age).astype(int)
-
-    members = pd.concat([members, new_df], axis=1)
-    #print(members.columns)
-
+    average_age = round(members["bd"].mean(), 0)
+    condition = f"{average_age} if (x <= 0 or x > 100) else x"
+    members["bd"] = utils.get_apply_condiiton_on_column(members, "bd", condition)
 
     """################ Transactions Feature Engineering ###############################"""
 
-    new_df  = utils.fix_time_in_df(
+    transactions  = utils.fix_time_in_df(
         transactions, "transaction_date", expand=True
     )
-    new_df.drop("transaction_date", axis=1)
-    transactions = pd.concat([transactions,new_df], axis=1)
-    transactions.drop("transaction_date", axis=1)
     
-    new_df_2 = utils.fix_time_in_df(
+    #print(transactions.columns)
+    transactions = utils.fix_time_in_df(
         transactions, "membership_expire_date", expand=True
     )
-    new_df_2.drop("membership_expire_date", axis=1)
-    transactions = pd.concat([transactions, new_df_2], axis=1)
-    transactions.drop("membership_expire_date", axis=1)
+    
+    #print(transactions.columns[transactions.columns.duplicated()])
 
     transactions["discount"] = utils.get_two_column_operations(
         transactions, "plan_list_price", "actual_amount_paid", "-"
@@ -200,12 +187,10 @@ def build_feature_table(train, members, transactions, user_logs):
         inplace=True,
     )
 
+
     ################################ User logs #########################################
 
-    new_df = utils.fix_time_in_df(user_logs, column_name="date", expand=True)
-    new_df.drop("date", axis=1)
-    user_logs = pd.concat([user_logs, new_df], axis=1)
-    user_logs.drop("date", axis=1)
+    user_logs = utils.fix_time_in_df(user_logs, column_name="date", expand=True)
 
     user_logs_transformed = utils.get_fix_skew_with_log(
         user_logs,
@@ -241,6 +226,7 @@ def build_feature_table(train, members, transactions, user_logs):
     user_logs_transformed_dates.columns = ["msno", "login_freq", "last_login"]
 
     user_logs_final = utils.get_merge(user_logs_transformed_base, user_logs_transformed_dates, on=key)
+    print(user_logs_final.columns)
 
     """ ########################### Final joins & features ################################# """
 
@@ -257,29 +243,38 @@ def build_feature_table(train, members, transactions, user_logs):
     train_df_final["registration_duration"] = utils.get_convert_column_dtype(
         train_df_final, "registration_duration", data_type="int"
     )
-    train_df_final.drop("registration_init_time", axis=1)
-    train_df_final.drop("msno", axis=1)
+    #
+    date_cols = [
+        "membership_expire_date_max",
+        "last_login",
+        "transaction_date_min",
+        "transaction_date_max"]
+
+    train_df_final = utils.transform_date_cols_for_xgboost(train_df_final, date_cols)
+    train_df_final = train_df_final.drop(["registration_init_time", "msno"], axis=1)
+    train_df_final = train_df_final.drop(date_cols, axis=1)
+    print(train_df_final.columns)
 
     # Optional: write a silver Parquet snapshot directly to S3
     # Be sure pyarrow/fastparquet + s3fs are installed if you keep this.
     # s3_parquet_path = "s3://beatit-ai-data/data-engineering/silver/train_df_final.parquet"
     # train_df_final.to_parquet(s3_parquet_path, index=False)
 
-        # Ensure label and sensitive feature have fixed positions
-    #label_col = "is_churn"
-    #sensitive_col = "registered_via"
+    # Ensure label and sensitive feature have fixed positionsS
+    label_col = "is_churn"
+    sensitive_col = "registered_via"
 
     # Start from all columns
-    #cols = list(train_df_final.columns)
+    cols = list(train_df_final.columns)
 
     # Remove label and sensitive feature from the list (if present)
-    #cols = [c for c in cols if c not in [label_col, sensitive_col]]
+    cols = [c for c in cols if c not in [label_col, sensitive_col]]
 
     # Final column order:
     # 0: is_churn (label)
     # 1: registered_via (sensitive feature)
     # 2..N: rest of features
-    #train_df_final = train_df_final[[label_col, sensitive_col] + cols]
+    train_df_final = train_df_final[[label_col, sensitive_col] + cols]
 
     return train_df_final
 
