@@ -323,12 +323,13 @@ def get_pipeline(
 
     step_args = transformer.transform(
         data=transform_inputs.data,
-        input_filter="$[:-1]",  # features only (label is column last)
+        input_filter="$[1:]",      # drop label (column 0)
         join_source="Input",
-        output_filter="$[-1,0]", # prediction first, true label second
+        output_filter="$[0,-1]",   # label, prediction
         content_type="text/csv",
         split_type="Line",
     )
+
     step_transform = TransformStep(name="ChurnTransform", step_args=step_args)
 
     # ---------- Model Quality Check ----------
