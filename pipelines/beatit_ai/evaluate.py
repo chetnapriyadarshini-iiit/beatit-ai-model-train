@@ -15,7 +15,7 @@ def load_transform_output(transform_dir: str):
     files = [
         os.path.join(transform_dir, f)
         for f in os.listdir(transform_dir)
-        if f.endswith(".csv")
+        if f.endswith(".out") or f.endswith(".csv")
     ]
 
     if not files:
