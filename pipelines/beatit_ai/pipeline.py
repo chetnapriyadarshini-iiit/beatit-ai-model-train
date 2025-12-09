@@ -32,6 +32,8 @@ from sagemaker.workflow.parameters import (
     ParameterInteger,
     ParameterString,
 )
+
+from sagemaker.sklearn.processing import SKLearnProcessor
 from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep, TransformStep
@@ -413,15 +415,16 @@ def get_pipeline(
     )
 
     # ---------- Evaluation step ----------
-    script_eval = sagemaker.processing.ScriptProcessor(
-        image_uri=image_uri,
-        command=["python3"],
-        instance_type=processing_instance_type,
-        instance_count=1,
-        base_job_name=f"{base_job_prefix}/script-churn-eval",
-        sagemaker_session=pipeline_session,
-        role=role,
+
+    script_eval = SKLearnProcessor(
+    framework_version="0.23-1",
+    instance_type=processing_instance_type,
+    instance_count=1,
+    base_job_name=f"{base_job_prefix}/script-churn-eval",
+    sagemaker_session=pipeline_session,
+    role=role,
     )
+
 
     step_args = script_eval.run(
         inputs=[
