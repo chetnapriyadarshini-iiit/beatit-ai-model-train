@@ -323,7 +323,7 @@ def get_pipeline(
 
     step_args = transformer.transform(
         data=transform_inputs.data,
-        input_filter="$[1:]",  # features only (label is column 0)
+        input_filter="$[:-1]",  # features only (label is column last)
         join_source="Input",
         output_filter="$[-1,0]", # prediction first, true label second
         content_type="text/csv",
@@ -416,24 +416,20 @@ def get_pipeline(
     # ---------- Evaluation step ----------
 
     script_eval = SKLearnProcessor(
-    framework_version="0.23-1",
-    instance_type=processing_instance_type,
-    instance_count=1,
-    base_job_name=f"{base_job_prefix}/script-churn-eval",
-    sagemaker_session=pipeline_session,
-    role=role,
+        framework_version="0.23-1",
+        instance_type=processing_instance_type,
+        instance_count=1,
+        base_job_name=f"{base_job_prefix}/script-churn-eval",
+        sagemaker_session=pipeline_session,
+        role=role,
     )
-
+    
     step_args = script_eval.run(
         inputs=[
             ProcessingInput(
-                source=step_train.properties.ModelArtifacts.S3ModelArtifacts,
-                destination="/opt/ml/processing/model",
-            ),
-            ProcessingInput(
-                source=step_process.properties.ProcessingOutputConfig.Outputs["test"].S3Output.S3Uri,
-                destination="/opt/ml/processing/test",
-            ),
+                source=step_transform.properties.TransformOutput.S3OutputPath,
+                destination="/opt/ml/processing/transform",
+            )
         ],
         outputs=[
             ProcessingOutput(
@@ -455,6 +451,7 @@ def get_pipeline(
         step_args=step_args,
         property_files=[evaluation_report],
     )
+
 
 
     # ---------- Register model package ----------
