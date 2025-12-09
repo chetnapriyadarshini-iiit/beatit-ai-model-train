@@ -81,7 +81,7 @@ The `tox` testing framework configuration:
 `-- tox.ini
 ```
 
-## Dataset for the Example Churn Pipeline
+## Dataset for the KKBox Churn Pipeline
 
 The dataset used is the [KKBox prediction challenge](https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge/data) [1]. The aim for this task is to determine whether the customer is going to churn or not based on past customers data. This data will them enable the company to take appropriate steps to retain the customer. At the core, it's a classification problem. 
     
