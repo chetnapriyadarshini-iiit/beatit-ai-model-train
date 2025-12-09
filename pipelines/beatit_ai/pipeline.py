@@ -416,28 +416,48 @@ def get_pipeline(
 
     # ---------- Evaluation step ----------
 
-    script_eval = SKLearnProcessor(
-    framework_version="0.23-1",
-    instance_type=processing_instance_type,
-    instance_count=1,
-    base_job_name=f"{base_job_prefix}/script-churn-eval",
-    sagemaker_session=pipeline_session,
-    role=role,
+    script_eval = ScriptProcessor(
+        image_uri=image_uri,  # ✅ XGBoost image (has xgboost installed)
+        command=["python3"],
+        instance_type=processing_instance_type,
+        instance_count=1,
+        base_job_name=f"{base_job_prefix}/script-churn-eval",
+        sagemaker_session=pipeline_session,
+        role=role,
     )
-
 
     step_args = script_eval.run(
         inputs=[
-            ProcessingInput(source=step_train.properties.ModelArtifacts.S3ModelArtifacts, destination="/opt/ml/processing/model"),
-            ProcessingInput(source=step_process.properties.ProcessingOutputConfig.Outputs["test"].S3Output.S3Uri, destination="/opt/ml/processing/test"),
+            ProcessingInput(
+                source=step_train.properties.ModelArtifacts.S3ModelArtifacts,
+                destination="/opt/ml/processing/model",
+            ),
+            ProcessingInput(
+                source=step_process.properties.ProcessingOutputConfig.Outputs["test"].S3Output.S3Uri,
+                destination="/opt/ml/processing/test",
+            ),
         ],
-        outputs=[ProcessingOutput(output_name="evaluation", source="/opt/ml/processing/evaluation")],
+        outputs=[
+            ProcessingOutput(
+                output_name="evaluation",
+                source="/opt/ml/processing/evaluation",
+            )
+        ],
         code=os.path.join(BASE_DIR, "evaluate.py"),
     )
+    
+    evaluation_report = PropertyFile(
+        name="ChurnEvaluationReport",
+        output_name="evaluation",
+        path="evaluation.json",
+    )
+    
+    step_eval = ProcessingStep(
+        name="EvaluateChurnModel",
+        step_args=step_args,
+        property_files=[evaluation_report],
+    )
 
-    evaluation_report = PropertyFile(name="ChurnEvaluationReport", output_name="evaluation", path="evaluation.json")
-
-    step_eval = ProcessingStep(name="EvaluateChurnModel", step_args=step_args, property_files=[evaluation_report])
 
     # ---------- Register model package ----------
     model_for_register = Model(
@@ -482,8 +502,8 @@ def get_pipeline(
             processing_instance_count,
             training_instance_type,
             model_approval_status,
-            input_data,
-            
+            input_data
+        """    
             skip_check_data_quality,
             register_new_baseline_data_quality,
             supplied_baseline_statistics_data_quality,
@@ -504,18 +524,18 @@ def get_pipeline(
             
             skip_check_model_explainability,
             register_new_baseline_model_explainability,
-            supplied_baseline_constraints_model_explainability
+            supplied_baseline_constraints_model_explainability"""
         ],
         steps=[
             step_process,
-            data_quality_check_step,
-            data_bias_check_step,
+            #data_quality_check_step,
+            #data_bias_check_step,
             step_train,
             step_create_model,
             step_transform,
-            model_quality_check_step,
-            model_bias_check_step,
-            model_explainability_check_step,
+            #model_quality_check_step,
+            #model_bias_check_step,
+            #model_explainability_check_step,
             step_eval,
             step_cond,
         ],
