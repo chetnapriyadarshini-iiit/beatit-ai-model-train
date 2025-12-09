@@ -9,3 +9,4 @@ pipelines/.ipynb_checkpoints/*
 pipelines/beatit_ai/.ipynb_checkpoints/*
 pipelines/beatit_ai/.ipynb_checkpoints/*
 .ipynb_checkpoints/*
+pipelines/beatit_ai/*.csv
