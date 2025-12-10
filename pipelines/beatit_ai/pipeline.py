@@ -474,10 +474,10 @@ def get_pipeline(
             model_data_statistics=MetricsSource(s3_uri=data_quality_check_step.properties.CalculatedBaselineStatistics, content_type="application/json"),
             model_data_constraints=MetricsSource(s3_uri=data_quality_check_step.properties.CalculatedBaselineConstraints, content_type="application/json"),
         ),
-        drift_check_baselines=DriftCheckBaselines(
+        """drift_check_baselines=DriftCheckBaselines(
             model_data_statistics=MetricsSource(s3_uri=data_quality_check_step.properties.BaselineUsedForDriftCheckStatistics, content_type="application/json"),
             model_data_constraints=MetricsSource(s3_uri=data_quality_check_step.properties.BaselineUsedForDriftCheckConstraints, content_type="application/json"),
-        ),
+        ),"""
     )
 
     step_register = ModelStep(name="RegisterChurnModel", step_args=register_step_args)
