@@ -33,8 +33,8 @@ def load_transform_output(transform_dir: str):
             f"Expected 2 columns (prediction, label), but got {df.shape[1]}"
         )
 
-    y_pred_proba = df.iloc[:, 0]
-    y_true = df.iloc[:, 1]
+    y_true = df.iloc[:, 0]
+    y_pred_proba = df.iloc[:, 1]
 
     return y_true, y_pred_proba
 
