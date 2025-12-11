@@ -8,10 +8,8 @@ import boto3
 import subprocess
 import time
 from datetime import datetime, date
-import pyarrow as pa
-import pyarrow.dataset as ds
-import pyarrow.fs as pafs
 import traceback
+import io
 
 WHL_S3 = "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
 LOCAL_WHL = "/tmp/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
@@ -84,54 +82,29 @@ def load_raw_kkbox_data(raw_dir: str):
  # ---------- helper for partitioned write ----------
 
 
-def _write_partitioned_parquet(df: pd.DataFrame, base_s3_dir: str, table_name: str):
+def write_csv_partitioned(df, base_uri, table_name, year, month, ts_int):
     """
-    Write df partitioned by year/month to s3://{base_s3_dir}/{table_name}/year=YYYY/month=MM/
-    Uses pyarrow.dataset.write_dataset with S3 filesystem if available; falls back to single-file pandas.to_parquet.
+    Write df to:
+      s3://bucket/.../{table_name}/year=YYYY/month=MM/{table_name}_{ts_int}.csv
     """
-    snapshot_date = date.today()
-    year = snapshot_date.year
-    month = snapshot_date.month
-    ts_int = int(time.time())
+    # Parse s3://bucket/prefix/... into bucket + key
+    assert base_uri.startswith("s3://")
+    no_scheme = base_uri[5:]  # remove 's3://'
+    bucket, prefix = no_scheme.split("/", 1)
 
-    df_local = df.copy()
-    # add partition columns
-    df_local["_partition_year"] = year
-    df_local["_partition_month"] = month
-    # target directory (base)
-    target_base = f"{base_s3_dir}/{table_name}"
-    try:
-        # Use PyArrow S3 filesystem
-        fs = pafs.S3FileSystem()
-        # convert pandas to pyarrow table
-        table = pa.Table.from_pandas(df_local, safe=False)
-        # write_dataset supports partitioning by column names
-        ds.write_dataset(
-            table,
-            base_dir=target_base,
-            format="parquet",
-            partitioning=["_partition_year", "_partition_month"],
-            filesystem=fs,
-            existing_data_behavior="overwrite_or_ignore",
-            schema=table.schema,
-            use_threads=True,
-            basename_template=f"{table_name}_part-{ts_int}-{{i}}.parquet"
-        )
-        print(f"Wrote partitioned parquet to {target_base} (pyarrow.dataset)")
-    except Exception as e:
-        # fallback: use pandas.to_parquet to a single file under base/{table_name}/year=YYYY/month=MM/
-        try:
-            print("pyarrow.dataset S3 write failed or not available, falling back to pandas.to_parquet. Error:", e)
-            partitioned_dir = os.path.join(target_base, f"year={year}", f"month={month}")
-            filename = f"{table_name}_{year}_{month}_{ts_int}.parquet"
-            s3_path = partitioned_dir.rstrip("/") + "/" + filename
-            # pandas.to_parquet will use s3fs if available
-            df_local.to_parquet(s3_path, index=False, compression="snappy", engine="pyarrow")
-            print(f"Wrote parquet fallback to {s3_path}")
-        except Exception as e2:
-            print("Failed to write fallback parquet as well. Errors:")
-            traceback.print_exc()
-            raise e2
+    key = (
+        f"{prefix.rstrip('/')}/{table_name}/"
+        f"year={year}/month={month}/"
+        f"{table_name}_{ts_int}.csv"
+    )
+
+    # Convert DF to CSV bytes
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
+
+    s3 = boto3.client("s3")
+    s3.put_object(Bucket=bucket, Key=key, Body=csv_bytes)
+
+    print(f"✔ Wrote CSV → s3://{bucket}/{key}, rows={len(df)}")
 
 
 def build_feature_table(train, members, transactions, user_logs):
@@ -145,6 +118,9 @@ def build_feature_table(train, members, transactions, user_logs):
     key = "msno"
     ingest_ts = datetime.utcnow().isoformat() + "Z"
     snapshot_date = date.today()
+    year = snapshot_date.year
+    month = snapshot_date.month
+    ts_int = int(time.time())
 
     """################################### Members ##########################################"""
 
@@ -168,7 +144,7 @@ def build_feature_table(train, members, transactions, user_logs):
         members_silver = members.copy()
         members_silver["silver_ingest_ts"] = ingest_ts
         members_silver["source"] = "beatit_ai/preprocess.build_feature_table:members"
-        _write_partitioned_parquet(members_silver, SILVER_BASE, "members")
+        write_csv_partitioned(members_silver, SILVER_BASE, "members", year, month, ts_int)
     except Exception as e:
         print("Warning: could not write members to silver:", e)
         traceback.print_exc()
@@ -258,7 +234,7 @@ def build_feature_table(train, members, transactions, user_logs):
         trans_silver = transactions_features.copy()
         trans_silver["silver_ingest_ts"] = ingest_ts
         trans_silver["source"] = "beatit_ai/preprocess.build_feature_table:transactions_features"
-        _write_partitioned_parquet(trans_silver, SILVER_BASE, "transactions")
+        write_csv_partitioned(members_silver, SILVER_BASE, "members", year, month, ts_int)
     except Exception as e:
         print("Warning: could not write transactions_features to silver:", e)
         traceback.print_exc()
@@ -308,7 +284,7 @@ def build_feature_table(train, members, transactions, user_logs):
         logs_silver = user_logs_final.copy()
         logs_silver["silver_ingest_ts"] = ingest_ts
         logs_silver["source"] = "beatit_ai/preprocess.build_feature_table:user_logs_final"
-        _write_partitioned_parquet(logs_silver, SILVER_BASE, "user_logs")
+        write_csv_partitioned(logs_silver, SILVER_BASE, "user_logs", year, month, ts_int)
     except Exception as e:
         print("Warning: could not write user_logs_final to silver:", e)
         traceback.print_exc()
@@ -346,7 +322,7 @@ def build_feature_table(train, members, transactions, user_logs):
         gold_df["gold_ingest_ts"] = ingest_ts
         gold_df["snapshot_date"] = str(snapshot_date)
         gold_df["source"] = "beatit_ai/preprocess.build_feature_table:train_df_final"
-        _write_partitioned_parquet(gold_df, GOLD_BASE + "/ml_features", "train_features")
+        write_csv_partitioned(train_df_final, GOLD_BASE, "ml_features", year, month, ts_int)
     except Exception as e:
         print("Warning: could not write train_df_final to gold:", e)
         traceback.print_exc()
