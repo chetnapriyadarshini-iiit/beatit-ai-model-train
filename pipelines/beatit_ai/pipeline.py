@@ -152,14 +152,24 @@ def get_pipeline(
     MODEL_EXPLAINABILITY_CONSTRAINTS = f"{placeholders_prefix}/model_explainability_constraints.json"
 
     # ---------- Preprocessing (SKLearnProcessor) ----------
-    sklearn_processor = SKLearnProcessor(
+    """sklearn_processor = SKLearnProcessor(
         framework_version="1.2-1",
         instance_type=processing_instance_type,
         instance_count=processing_instance_count,
         base_job_name=f"{base_job_prefix}/sklearn-churn-preprocess",
         sagemaker_session=pipeline_session,
         role=role,
+    )"""
+
+    sklearn_processor = SKLearnProcessor(
+        image_uri="683313688378.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3",
+        instance_type=processing_instance_type,
+        instance_count=processing_instance_count,
+        base_job_name=f"{base_job_prefix}/sklearn-churn-preprocess",
+        sagemaker_session=pipeline_session,
+        role=role,
     )
+
 
     step_args = sklearn_processor.run(
         inputs=[
