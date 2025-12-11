@@ -1,18 +1,22 @@
 """Feature engineers the churn dataset."""
-import os, sys
+import os,sys
 import argparse
-import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-import os
-import sys
 import boto3
 import subprocess
-from pathlib import Path
+import time
+from datetime import datetime, date
+import pyarrow as pa
+import pyarrow.dataset as ds
+import pyarrow.fs as pafs
+import traceback
 
 WHL_S3 = "s3://beatit-ai-common-artifact-bucket/beatit_ai_common/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
 LOCAL_WHL = "/tmp/beatit_ai_common_utilities-0.1.0-py3-none-any.whl"
+SILVER_BASE = "s3://beatit-ai-data/data-engineering/silver"
+GOLD_BASE = "s3://beatit-ai-data/data-engineering/gold"
 
 
 def install_whl_from_s3():
@@ -77,6 +81,58 @@ def load_raw_kkbox_data(raw_dir: str):
 
     return train_df, members_df, transactions_df, user_logs_df
 
+ # ---------- helper for partitioned write ----------
+
+
+def _write_partitioned_parquet(df: pd.DataFrame, base_s3_dir: str, table_name: str):
+    """
+    Write df partitioned by year/month to s3://{base_s3_dir}/{table_name}/year=YYYY/month=MM/
+    Uses pyarrow.dataset.write_dataset with S3 filesystem if available; falls back to single-file pandas.to_parquet.
+    """
+    snapshot_date = date.today()
+    year = snapshot_date.year
+    month = snapshot_date.month
+    ts_int = int(time.time())
+
+    df_local = df.copy()
+    # add partition columns
+    df_local["_partition_year"] = year
+    df_local["_partition_month"] = month
+    # target directory (base)
+    target_base = f"{base_s3_dir}/{table_name}"
+    try:
+        # Use PyArrow S3 filesystem
+        fs = pafs.S3FileSystem()
+        # convert pandas to pyarrow table
+        table = pa.Table.from_pandas(df_local, safe=False)
+        # write_dataset supports partitioning by column names
+        ds.write_dataset(
+            table,
+            base_dir=target_base,
+            format="parquet",
+            partitioning=["_partition_year", "_partition_month"],
+            filesystem=fs,
+            existing_data_behavior="overwrite_or_ignore",
+            schema=table.schema,
+            use_threads=True,
+            basename_template=f"{table_name}_part-{ts_int}-{{i}}.parquet"
+        )
+        print(f"Wrote partitioned parquet to {target_base} (pyarrow.dataset)")
+    except Exception as e:
+        # fallback: use pandas.to_parquet to a single file under base/{table_name}/year=YYYY/month=MM/
+        try:
+            print("pyarrow.dataset S3 write failed or not available, falling back to pandas.to_parquet. Error:", e)
+            partitioned_dir = os.path.join(target_base, f"year={year}", f"month={month}")
+            filename = f"{table_name}_{year}_{month}_{ts_int}.parquet"
+            s3_path = partitioned_dir.rstrip("/") + "/" + filename
+            # pandas.to_parquet will use s3fs if available
+            df_local.to_parquet(s3_path, index=False, compression="snappy", engine="pyarrow")
+            print(f"Wrote parquet fallback to {s3_path}")
+        except Exception as e2:
+            print("Failed to write fallback parquet as well. Errors:")
+            traceback.print_exc()
+            raise e2
+
 
 def build_feature_table(train, members, transactions, user_logs):
     """
@@ -87,7 +143,7 @@ def build_feature_table(train, members, transactions, user_logs):
     - 'is_churn' label column available for stratification
     """
     key = "msno"
-
+    ingest_ts = datetime.utcnow().isoformat() + "Z"
 
     """################################### Members ##########################################"""
 
@@ -105,6 +161,16 @@ def build_feature_table(train, members, transactions, user_logs):
     average_age = round(members["bd"].mean(), 0)
     condition = f"{average_age} if (x <= 0 or x > 100) else x"
     members["bd"] = utils.get_apply_condiiton_on_column(members, "bd", condition)
+
+    # write members to silver partitioned
+    try:
+        members_silver = members.copy()
+        members_silver["silver_ingest_ts"] = ingest_ts
+        members_silver["source"] = "beatit_ai/preprocess.build_feature_table:members"
+        _write_partitioned_parquet(members_silver, SILVER_BASE, "members")
+    except Exception as e:
+        print("Warning: could not write members to silver:", e)
+        traceback.print_exc()
 
     """################ Transactions Feature Engineering ###############################"""
 
@@ -186,7 +252,15 @@ def build_feature_table(train, members, transactions, user_logs):
         },
         inplace=True,
     )
-
+    # write transactions_features to silver partitioned
+    try:
+        trans_silver = transactions_features.copy()
+        trans_silver["silver_ingest_ts"] = ingest_ts
+        trans_silver["source"] = "beatit_ai/preprocess.build_feature_table:transactions_features"
+        _write_partitioned_parquet(trans_silver, SILVER_BASE, "transactions")
+    except Exception as e:
+        print("Warning: could not write transactions_features to silver:", e)
+        traceback.print_exc()
 
     ################################ User logs #########################################
 
@@ -226,7 +300,17 @@ def build_feature_table(train, members, transactions, user_logs):
     user_logs_transformed_dates.columns = ["msno", "login_freq", "last_login"]
 
     user_logs_final = utils.get_merge(user_logs_transformed_base, user_logs_transformed_dates, on=key)
-    print(user_logs_final.columns)
+    #print(user_logs_final.columns)
+
+    # write user_logs_final to silver partitioned
+    try:
+        logs_silver = user_logs_final.copy()
+        logs_silver["silver_ingest_ts"] = ingest_ts
+        logs_silver["source"] = "beatit_ai/preprocess.build_feature_table:user_logs_final"
+        _write_partitioned_parquet(logs_silver, SILVER_BASE, "user_logs")
+    except Exception as e:
+        print("Warning: could not write user_logs_final to silver:", e)
+        traceback.print_exc()
 
     """ ########################### Final joins & features ################################# """
 
@@ -253,12 +337,18 @@ def build_feature_table(train, members, transactions, user_logs):
     train_df_final = utils.transform_date_cols_for_xgboost(train_df_final, date_cols)
     train_df_final = train_df_final.drop(["registration_init_time", "msno"], axis=1)
     train_df_final = train_df_final.drop(date_cols, axis=1)
-    #print(train_df_final.columns)
 
-    # Optional: write a silver Parquet snapshot directly to S3
-    # Be sure pyarrow/fastparquet + s3fs are installed if you keep this.
-    # s3_parquet_path = "s3://beatit-ai-data/data-engineering/silver/train_df_final.parquet"
-    # train_df_final.to_parquet(s3_parquet_path, index=False)
+
+    # --- write final derived table to GOLD partitioned
+    try:
+        gold_df = train_df_final.copy()
+        gold_df["gold_ingest_ts"] = ingest_ts
+        gold_df["snapshot_date"] = str(snapshot_date)
+        gold_df["source"] = "beatit_ai/preprocess.build_feature_table:train_df_final"
+        _write_partitioned_parquet(gold_df, GOLD_BASE + "/ml_features", "train_features")
+    except Exception as e:
+        print("Warning: could not write train_df_final to gold:", e)
+        traceback.print_exc()
 
     # Ensure label and sensitive feature have fixed positionsS
     label_col = "is_churn"
