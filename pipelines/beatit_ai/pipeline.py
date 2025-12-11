@@ -338,8 +338,8 @@ def get_pipeline(
         dataset_format=DatasetFormat.csv(header=False),
         output_s3_uri=Join(on="/", values=["s3:/", default_bucket, base_job_prefix, ExecutionVariables.PIPELINE_EXECUTION_ID, "modelqualitycheckstep"]),
         problem_type="BinaryClassification",
-        inference_attribute="_c0",
-        ground_truth_attribute="_c1",
+        ground_truth_attribute="_c0", #label
+        inference_attribute="_c1", #prediction
     )
 
     model_quality_check_step = QualityCheckStep(
