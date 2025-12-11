@@ -234,7 +234,7 @@ def build_feature_table(train, members, transactions, user_logs):
         trans_silver = transactions_features.copy()
         trans_silver["silver_ingest_ts"] = ingest_ts
         trans_silver["source"] = "beatit_ai/preprocess.build_feature_table:transactions_features"
-        write_csv_partitioned(members_silver, SILVER_BASE, "members", year, month, ts_int)
+        write_csv_partitioned(trans_silver, SILVER_BASE, "members", year, month, ts_int)
     except Exception as e:
         print("Warning: could not write transactions_features to silver:", e)
         traceback.print_exc()
