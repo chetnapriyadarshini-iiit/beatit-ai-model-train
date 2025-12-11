@@ -144,6 +144,7 @@ def build_feature_table(train, members, transactions, user_logs):
     """
     key = "msno"
     ingest_ts = datetime.utcnow().isoformat() + "Z"
+    snapshot_date = date.today()
 
     """################################### Members ##########################################"""
 
