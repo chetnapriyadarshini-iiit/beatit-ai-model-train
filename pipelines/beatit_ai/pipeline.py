@@ -189,8 +189,8 @@ def get_pipeline(
     check_job_config = CheckJobConfig(
         role=role,
         instance_count=1,
-        instance_type="ml.m5.2xlarge",
-        volume_size_in_gb=120,
+        instance_type="ml.m5.xlarge",
+        volume_size_in_gb=200,
         sagemaker_session=pipeline_session,
     )
 
