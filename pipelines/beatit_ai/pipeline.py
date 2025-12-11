@@ -334,7 +334,7 @@ def get_pipeline(
 
     # ---------- Model Quality Check ----------
     model_quality_check_config = ModelQualityCheckConfig(
-        baseline_dataset=step_transform.properties.TransformOutput.S3OutputPath,
+        baseline_dataset="s3://beatit-ai-data/data-engineering/sample_stratified/sample.csv",
         dataset_format=DatasetFormat.csv(header=False),
         output_s3_uri=Join(on="/", values=["s3:/", default_bucket, base_job_prefix, ExecutionVariables.PIPELINE_EXECUTION_ID, "modelqualitycheckstep"]),
         problem_type="BinaryClassification",
