@@ -58,6 +58,16 @@ from sagemaker.workflow.pipeline_context import PipelineSession
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
+# ---------- placeholders S3 paths (you uploaded tiny {} files there) ----------
+placeholders_prefix = f"s3://{default_bucket}/{base_job_prefix}/churn-baslines"
+DATA_QUALITY_STATS = f"{placeholders_prefix}/data_quality_statistics.json"
+DATA_QUALITY_CONSTRAINTS = f"{placeholders_prefix}/data_quality_constraints.json"
+DATA_BIAS_CONSTRAINTS = f"{placeholders_prefix}/data_bias_constraints.json"
+MODEL_QUALITY_STATS = f"{placeholders_prefix}/model_quality_statistics.json"
+MODEL_QUALITY_CONSTRAINTS = f"{placeholders_prefix}/model_quality_constraints.json"
+MODEL_BIAS_CONSTRAINTS = f"{placeholders_prefix}/model_bias_constraints.json"
+MODEL_EXPLAINABILITY_CONSTRAINTS = f"{placeholders_prefix}/model_explainability_constraints.json"
+
 
 def get_sagemaker_client(region):
     boto_session = boto3.Session(region_name=region)
@@ -117,39 +127,28 @@ def get_pipeline(
     # toggles for checks/baseline registration
     skip_check_data_quality = ParameterBoolean(name="SkipDataQualityCheck", default_value=False)
     register_new_baseline_data_quality = ParameterBoolean(name="RegisterNewDataQualityBaseline", default_value=False)
-    supplied_baseline_statistics_data_quality = ParameterString(name="DataQualitySuppliedStatistics", default_value='')
-    supplied_baseline_constraints_data_quality = ParameterString(name="DataQualitySuppliedConstraints", default_value='')
+    supplied_baseline_statistics_data_quality = ParameterString(name="DataQualitySuppliedStatistics", default_value=DATA_QUALITY_STATS)
+    supplied_baseline_constraints_data_quality = ParameterString(name="DataQualitySuppliedConstraints", default_value=DATA_QUALITY_CONSTRAINTS)
 
 
     skip_check_data_bias = ParameterBoolean(name="SkipDataBiasCheck", default_value=False)
     register_new_baseline_data_bias = ParameterBoolean(name="RegisterNewDataBiasBaseline", default_value=False)
-    supplied_baseline_constraints_data_bias = ParameterString(name="DataBiasSuppliedBaselineConstraints", default_value='')
+    supplied_baseline_constraints_data_bias = ParameterString(name="DataBiasSuppliedBaselineConstraints", default_value=DATA_BIAS_CONSTRAINTS)
 
     skip_check_model_quality = ParameterBoolean(name="SkipModelQualityCheck", default_value=False)
     register_new_baseline_model_quality = ParameterBoolean(name="RegisterNewModelQualityBaseline", default_value=False)
-    supplied_baseline_statistics_model_quality = ParameterString(name="ModelQualitySuppliedStatistics", default_value='')
-    supplied_baseline_constraints_model_quality = ParameterString(name="ModelQualitySuppliedConstraints", default_value='')
+    supplied_baseline_statistics_model_quality = ParameterString(name="ModelQualitySuppliedStatistics", default_value=MODEL_QUALITY_STATS)
+    supplied_baseline_constraints_model_quality = ParameterString(name="ModelQualitySuppliedConstraints", default_value=MODEL_QUALITY_CONSTRAINTS)
 
 
     skip_check_model_bias = ParameterBoolean(name="SkipModelBiasCheck", default_value=False)
     register_new_baseline_model_bias = ParameterBoolean(name="RegisterNewModelBiasBaseline", default_value=False)
-    supplied_baseline_constraints_model_bias = ParameterString(name="ModelBiasSuppliedBaselineConstraints", default_value='')
+    supplied_baseline_constraints_model_bias = ParameterString(name="ModelBiasSuppliedBaselineConstraints", default_value=MODEL_BIAS_CONSTRAINTS)
 
 
     skip_check_model_explainability = ParameterBoolean(name="SkipModelExplainabilityCheck", default_value=False)
     register_new_baseline_model_explainability = ParameterBoolean(name="RegisterNewModelExplainabilityBaseline", default_value=False)
-    supplied_baseline_constraints_model_explainability = ParameterString(name="ModelExplainabilitySuppliedBaselineConstraints", default_value='')
-
-
-    # ---------- placeholders S3 paths (you uploaded tiny {} files there) ----------
-    placeholders_prefix = f"s3://{default_bucket}/{base_job_prefix}/placeholders"
-    DATA_QUALITY_STATS = f"{placeholders_prefix}/data_quality_statistics.json"
-    DATA_QUALITY_CONSTRAINTS = f"{placeholders_prefix}/data_quality_constraints.json"
-    DATA_BIAS_CONSTRAINTS = f"{placeholders_prefix}/data_bias_constraints.json"
-    MODEL_QUALITY_STATS = f"{placeholders_prefix}/model_quality_statistics.json"
-    MODEL_QUALITY_CONSTRAINTS = f"{placeholders_prefix}/model_quality_constraints.json"
-    MODEL_BIAS_CONSTRAINTS = f"{placeholders_prefix}/model_bias_constraints.json"
-    MODEL_EXPLAINABILITY_CONSTRAINTS = f"{placeholders_prefix}/model_explainability_constraints.json"
+    supplied_baseline_constraints_model_explainability = ParameterString(name="ModelExplainabilitySuppliedBaselineConstraints", default_value=MODEL_EXPLAINABILITY_CONSTRAINTS)
 
     # ---------- Preprocessing (SKLearnProcessor) ----------
     sklearn_processor = SKLearnProcessor(
