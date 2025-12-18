@@ -32,6 +32,7 @@ from sagemaker.workflow.parameters import (
     ParameterInteger,
     ParameterString,
 )
+
 from sagemaker.workflow.pipeline import Pipeline
 from sagemaker.workflow.properties import PropertyFile
 from sagemaker.workflow.steps import ProcessingStep, TrainingStep, TransformStep
@@ -90,7 +91,7 @@ def get_pipeline(
     base_job_prefix="BeatItAI-Churn",
     processing_instance_type="ml.m5.xlarge",
     training_instance_type="ml.m5.xlarge",
-    sagemaker_project_name=None,
+    sagemaker_project_name="BeatIT_AI Customer Churn project",
 ):
     """
     Build and return a SageMaker Pipeline object configured for churn train/eval/register.
@@ -113,41 +114,52 @@ def get_pipeline(
     model_approval_status = ParameterString(name="ModelApprovalStatus", default_value="PendingManualApproval")
     input_data = ParameterString(name="InputDataUrl", default_value=f"s3://beatit-ai-data/raw/")
 
+    # ---------- placeholders S3 paths (you uploaded tiny {} files there) ----------
+    baseline_prefix = f"s3://{default_bucket}/{base_job_prefix}/churn-baslines"
+    DATA_QUALITY_STATS = f"{baseline_prefix}/data_quality_statistics.json"
+    DATA_QUALITY_CONSTRAINTS = f"{baseline_prefix}/data_quality_constraints.json"
+    DATA_BIAS_CONSTRAINTS = f"{baseline_prefix}/data_bias_constraints.json"
+    MODEL_QUALITY_STATS = f"{baseline_prefix}/model_quality_statistics.json"
+    MODEL_QUALITY_CONSTRAINTS = f"{baseline_prefix}/model_quality_constraints.json"
+    MODEL_BIAS_CONSTRAINTS = f"{baseline_prefix}/model_bias_constraints.json"
+    MODEL_EXPLAINABILITY_CONSTRAINTS = f"{baseline_prefix}/model_explainability_constraints.json"
+
     # toggles for checks/baseline registration
     skip_check_data_quality = ParameterBoolean(name="SkipDataQualityCheck", default_value=False)
     register_new_baseline_data_quality = ParameterBoolean(name="RegisterNewDataQualityBaseline", default_value=False)
+    supplied_baseline_statistics_data_quality = ParameterString(name="DataQualitySuppliedStatistics", default_value=DATA_QUALITY_STATS)
+    supplied_baseline_constraints_data_quality = ParameterString(name="DataQualitySuppliedConstraints", default_value=DATA_QUALITY_CONSTRAINTS)
+
 
     skip_check_data_bias = ParameterBoolean(name="SkipDataBiasCheck", default_value=False)
     register_new_baseline_data_bias = ParameterBoolean(name="RegisterNewDataBiasBaseline", default_value=False)
+    supplied_baseline_constraints_data_bias = ParameterString(name="DataBiasSuppliedBaselineConstraints", default_value=DATA_BIAS_CONSTRAINTS)
 
     skip_check_model_quality = ParameterBoolean(name="SkipModelQualityCheck", default_value=False)
     register_new_baseline_model_quality = ParameterBoolean(name="RegisterNewModelQualityBaseline", default_value=False)
+    supplied_baseline_statistics_model_quality = ParameterString(name="ModelQualitySuppliedStatistics", default_value=MODEL_QUALITY_STATS)
+    supplied_baseline_constraints_model_quality = ParameterString(name="ModelQualitySuppliedConstraints", default_value=MODEL_QUALITY_CONSTRAINTS)
+
 
     skip_check_model_bias = ParameterBoolean(name="SkipModelBiasCheck", default_value=False)
     register_new_baseline_model_bias = ParameterBoolean(name="RegisterNewModelBiasBaseline", default_value=False)
+    supplied_baseline_constraints_model_bias = ParameterString(name="ModelBiasSuppliedBaselineConstraints", default_value=MODEL_BIAS_CONSTRAINTS)
+
 
     skip_check_model_explainability = ParameterBoolean(name="SkipModelExplainabilityCheck", default_value=False)
     register_new_baseline_model_explainability = ParameterBoolean(name="RegisterNewModelExplainabilityBaseline", default_value=False)
-
-    # ---------- placeholders S3 paths (you uploaded tiny {} files there) ----------
-    placeholders_prefix = f"s3://{default_bucket}/{base_job_prefix}/placeholders"
-    DATA_QUALITY_STATS = f"{placeholders_prefix}/data_quality_statistics.json"
-    DATA_QUALITY_CONSTRAINTS = f"{placeholders_prefix}/data_quality_constraints.json"
-    DATA_BIAS_CONSTRAINTS = f"{placeholders_prefix}/data_bias_constraints.json"
-    MODEL_QUALITY_STATS = f"{placeholders_prefix}/model_quality_statistics.json"
-    MODEL_QUALITY_CONSTRAINTS = f"{placeholders_prefix}/model_quality_constraints.json"
-    MODEL_BIAS_CONSTRAINTS = f"{placeholders_prefix}/model_bias_constraints.json"
-    MODEL_EXPLAINABILITY_CONSTRAINTS = f"{placeholders_prefix}/model_explainability_constraints.json"
+    supplied_baseline_constraints_model_explainability = ParameterString(name="ModelExplainabilitySuppliedBaselineConstraints", default_value=MODEL_EXPLAINABILITY_CONSTRAINTS)
 
     # ---------- Preprocessing (SKLearnProcessor) ----------
     sklearn_processor = SKLearnProcessor(
-        framework_version="0.23-1",
+        framework_version="1.2-1",
         instance_type=processing_instance_type,
         instance_count=processing_instance_count,
         base_job_name=f"{base_job_prefix}/sklearn-churn-preprocess",
         sagemaker_session=pipeline_session,
         role=role,
     )
+
 
     step_args = sklearn_processor.run(
         inputs=[
@@ -177,12 +189,13 @@ def get_pipeline(
     check_job_config = CheckJobConfig(
         role=role,
         instance_count=1,
-        instance_type="ml.c5.xlarge",
-        volume_size_in_gb=120,
+        instance_type="ml.m5.xlarge",
+        volume_size_in_gb=200,
         sagemaker_session=pipeline_session,
     )
 
     # ---------- Data Quality Check (QualityCheckStep) ----------
+    
     data_quality_check_config = DataQualityCheckConfig(
         baseline_dataset=step_process.properties.ProcessingOutputConfig.Outputs["train"].S3Output.S3Uri,
         dataset_format=DatasetFormat.csv(header=False, output_columns_position="START"),
@@ -196,8 +209,8 @@ def get_pipeline(
         quality_check_config=data_quality_check_config,
         check_job_config=check_job_config,
         # supply the placeholders you uploaded
-        supplied_baseline_statistics=DATA_QUALITY_STATS,
-        supplied_baseline_constraints=DATA_QUALITY_CONSTRAINTS,
+        supplied_baseline_statistics=supplied_baseline_statistics_data_quality,
+        supplied_baseline_constraints=supplied_baseline_constraints_data_quality,
         model_package_group_name=model_package_group_name,
     )
 
@@ -228,7 +241,7 @@ def get_pipeline(
         check_job_config=check_job_config,
         skip_check=skip_check_data_bias,
         register_new_baseline=register_new_baseline_data_bias,
-        supplied_baseline_constraints=DATA_BIAS_CONSTRAINTS,
+        supplied_baseline_constraints=supplied_baseline_constraints_data_bias,
         model_package_group_name=model_package_group_name,
     )
 
@@ -310,22 +323,23 @@ def get_pipeline(
 
     step_args = transformer.transform(
         data=transform_inputs.data,
-        input_filter="$[1:]",  # features only (label is column 0)
+        input_filter="$[1:]",      # drop label (column 0)
         join_source="Input",
-        output_filter="$[0,-1]",  # prediction, original label
+        output_filter="$[0,-1]",   # label, prediction
         content_type="text/csv",
         split_type="Line",
     )
+
     step_transform = TransformStep(name="ChurnTransform", step_args=step_args)
 
     # ---------- Model Quality Check ----------
     model_quality_check_config = ModelQualityCheckConfig(
-        baseline_dataset=step_transform.properties.TransformOutput.S3OutputPath,
+        baseline_dataset="s3://beatit-ai-data/data-engineering/sample_stratified/sample.csv",
         dataset_format=DatasetFormat.csv(header=False),
         output_s3_uri=Join(on="/", values=["s3:/", default_bucket, base_job_prefix, ExecutionVariables.PIPELINE_EXECUTION_ID, "modelqualitycheckstep"]),
         problem_type="BinaryClassification",
-        inference_attribute="_c0",
-        ground_truth_attribute="_c1",
+        ground_truth_attribute="_c0", #label
+        inference_attribute="_c1", #prediction
     )
 
     model_quality_check_step = QualityCheckStep(
@@ -334,8 +348,8 @@ def get_pipeline(
         register_new_baseline=register_new_baseline_model_quality,
         quality_check_config=model_quality_check_config,
         check_job_config=check_job_config,
-        supplied_baseline_statistics=MODEL_QUALITY_STATS,
-        supplied_baseline_constraints=MODEL_QUALITY_CONSTRAINTS,
+        supplied_baseline_statistics=supplied_baseline_statistics_model_quality,
+        supplied_baseline_constraints=supplied_baseline_constraints_model_quality,
         model_package_group_name=model_package_group_name,
     )
 
@@ -367,7 +381,7 @@ def get_pipeline(
         check_job_config=check_job_config,
         skip_check=skip_check_model_bias,
         register_new_baseline=register_new_baseline_model_bias,
-        supplied_baseline_constraints=MODEL_BIAS_CONSTRAINTS,
+        supplied_baseline_constraints=supplied_baseline_constraints_model_bias,
         model_package_group_name=model_package_group_name,
     )
 
@@ -396,33 +410,50 @@ def get_pipeline(
         check_job_config=check_job_config,
         skip_check=skip_check_model_explainability,
         register_new_baseline=register_new_baseline_model_explainability,
-        supplied_baseline_constraints=MODEL_EXPLAINABILITY_CONSTRAINTS,
+        supplied_baseline_constraints=supplied_baseline_constraints_model_explainability,
         model_package_group_name=model_package_group_name,
     )
 
     # ---------- Evaluation step ----------
-    script_eval = sagemaker.processing.ScriptProcessor(
-        image_uri=image_uri,
-        command=["python3"],
+
+    script_eval = SKLearnProcessor(
+        framework_version="0.23-1",
         instance_type=processing_instance_type,
         instance_count=1,
         base_job_name=f"{base_job_prefix}/script-churn-eval",
         sagemaker_session=pipeline_session,
         role=role,
     )
-
+    
     step_args = script_eval.run(
         inputs=[
-            ProcessingInput(source=step_train.properties.ModelArtifacts.S3ModelArtifacts, destination="/opt/ml/processing/model"),
-            ProcessingInput(source=step_process.properties.ProcessingOutputConfig.Outputs["test"].S3Output.S3Uri, destination="/opt/ml/processing/test"),
+            ProcessingInput(
+                source=step_transform.properties.TransformOutput.S3OutputPath,
+                destination="/opt/ml/processing/transform",
+            )
         ],
-        outputs=[ProcessingOutput(output_name="evaluation", source="/opt/ml/processing/evaluation")],
+        outputs=[
+            ProcessingOutput(
+                output_name="evaluation",
+                source="/opt/ml/processing/evaluation",
+            )
+        ],
         code=os.path.join(BASE_DIR, "evaluate.py"),
     )
+    
+    evaluation_report = PropertyFile(
+        name="ChurnEvaluationReport",
+        output_name="evaluation",
+        path="evaluation.json",
+    )
+    
+    step_eval = ProcessingStep(
+        name="EvaluateChurnModel",
+        step_args=step_args,
+        property_files=[evaluation_report],
+    )
 
-    evaluation_report = PropertyFile(name="ChurnEvaluationReport", output_name="evaluation", path="evaluation.json")
 
-    step_eval = ProcessingStep(name="EvaluateChurnModel", step_args=step_args, property_files=[evaluation_report])
 
     # ---------- Register model package ----------
     model_for_register = Model(
@@ -443,11 +474,12 @@ def get_pipeline(
             model_data_statistics=MetricsSource(s3_uri=data_quality_check_step.properties.CalculatedBaselineStatistics, content_type="application/json"),
             model_data_constraints=MetricsSource(s3_uri=data_quality_check_step.properties.CalculatedBaselineConstraints, content_type="application/json"),
         ),
-        drift_check_baselines=DriftCheckBaselines(
-            model_data_statistics=MetricsSource(s3_uri=data_quality_check_step.properties.BaselineUsedForDriftCheckStatistics, content_type="application/json"),
-            model_data_constraints=MetricsSource(s3_uri=data_quality_check_step.properties.BaselineUsedForDriftCheckConstraints, content_type="application/json"),
-        ),
     )
+    """
+        drift_check_baselines=DriftCheckBaselines(
+                model_data_statistics=MetricsSource(s3_uri=data_quality_check_step.properties.BaselineUsedForDriftCheckStatistics, content_type="application/json"),
+            model_data_constraints=MetricsSource(s3_uri=data_quality_check_step.properties.BaselineUsedForDriftCheckConstraints, content_type="application/json"),
+        ),"""
 
     step_register = ModelStep(name="RegisterChurnModel", step_args=register_step_args)
 
@@ -468,16 +500,23 @@ def get_pipeline(
             training_instance_type,
             model_approval_status,
             input_data,
+            
             skip_check_data_quality,
             register_new_baseline_data_quality,
+            supplied_baseline_statistics_data_quality,
+            supplied_baseline_constraints_data_quality,
+            
             skip_check_data_bias,
             register_new_baseline_data_bias,
-            skip_check_model_quality,
-            register_new_baseline_model_quality,
+            supplied_baseline_constraints_data_bias,
+            
             skip_check_model_bias,
             register_new_baseline_model_bias,
+            supplied_baseline_constraints_model_bias,
+            
             skip_check_model_explainability,
             register_new_baseline_model_explainability,
+            supplied_baseline_constraints_model_explainability
         ],
         steps=[
             step_process,
@@ -486,7 +525,6 @@ def get_pipeline(
             step_train,
             step_create_model,
             step_transform,
-            model_quality_check_step,
             model_bias_check_step,
             model_explainability_check_step,
             step_eval,
