@@ -115,7 +115,7 @@ def get_pipeline(
     input_data = ParameterString(name="InputDataUrl", default_value=f"s3://beatit-ai-data/raw/")
 
     # ---------- placeholders S3 paths (you uploaded tiny {} files there) ----------
-    baseline_prefix = f"s3://{default_bucket}/{base_job_prefix}/churn-baslines"
+    baseline_prefix = f"s3://{default_bucket}/{base_job_prefix}/churn-baselines"
     DATA_QUALITY_STATS = f"{baseline_prefix}/data_quality_statistics.json"
     DATA_QUALITY_CONSTRAINTS = f"{baseline_prefix}/data_quality_constraints.json"
     DATA_BIAS_CONSTRAINTS = f"{baseline_prefix}/data_bias_constraints.json"
@@ -510,11 +510,6 @@ def get_pipeline(
             register_new_baseline_data_bias,
             supplied_baseline_constraints_data_bias,
             
-            skip_check_model_quality,
-            register_new_baseline_model_quality,
-            supplied_baseline_statistics_model_quality,
-            supplied_baseline_constraints_model_quality,
-            
             skip_check_model_bias,
             register_new_baseline_model_bias,
             supplied_baseline_constraints_model_bias,
@@ -530,7 +525,6 @@ def get_pipeline(
             step_train,
             step_create_model,
             step_transform,
-            model_quality_check_step,
             model_bias_check_step,
             model_explainability_check_step,
             step_eval,
