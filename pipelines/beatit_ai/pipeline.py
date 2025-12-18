@@ -58,16 +58,6 @@ from sagemaker.workflow.pipeline_context import PipelineSession
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
-# ---------- placeholders S3 paths (you uploaded tiny {} files there) ----------
-placeholders_prefix = f"s3://{default_bucket}/{base_job_prefix}/churn-baslines"
-DATA_QUALITY_STATS = f"{placeholders_prefix}/data_quality_statistics.json"
-DATA_QUALITY_CONSTRAINTS = f"{placeholders_prefix}/data_quality_constraints.json"
-DATA_BIAS_CONSTRAINTS = f"{placeholders_prefix}/data_bias_constraints.json"
-MODEL_QUALITY_STATS = f"{placeholders_prefix}/model_quality_statistics.json"
-MODEL_QUALITY_CONSTRAINTS = f"{placeholders_prefix}/model_quality_constraints.json"
-MODEL_BIAS_CONSTRAINTS = f"{placeholders_prefix}/model_bias_constraints.json"
-MODEL_EXPLAINABILITY_CONSTRAINTS = f"{placeholders_prefix}/model_explainability_constraints.json"
-
 
 def get_sagemaker_client(region):
     boto_session = boto3.Session(region_name=region)
@@ -123,6 +113,16 @@ def get_pipeline(
     processing_instance_count = ParameterInteger(name="ProcessingInstanceCount", default_value=1)
     model_approval_status = ParameterString(name="ModelApprovalStatus", default_value="PendingManualApproval")
     input_data = ParameterString(name="InputDataUrl", default_value=f"s3://beatit-ai-data/raw/")
+
+    # ---------- placeholders S3 paths (you uploaded tiny {} files there) ----------
+    baseline_prefix = f"s3://{default_bucket}/{base_job_prefix}/churn-baslines"
+    DATA_QUALITY_STATS = f"{baseline_prefix}/data_quality_statistics.json"
+    DATA_QUALITY_CONSTRAINTS = f"{baseline_prefix}/data_quality_constraints.json"
+    DATA_BIAS_CONSTRAINTS = f"{baseline_prefix}/data_bias_constraints.json"
+    MODEL_QUALITY_STATS = f"{baseline_prefix}/model_quality_statistics.json"
+    MODEL_QUALITY_CONSTRAINTS = f"{baseline_prefix}/model_quality_constraints.json"
+    MODEL_BIAS_CONSTRAINTS = f"{baseline_prefix}/model_bias_constraints.json"
+    MODEL_EXPLAINABILITY_CONSTRAINTS = f"{baseline_prefix}/model_explainability_constraints.json"
 
     # toggles for checks/baseline registration
     skip_check_data_quality = ParameterBoolean(name="SkipDataQualityCheck", default_value=False)
