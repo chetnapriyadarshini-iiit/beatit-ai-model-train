@@ -1,92 +1,115 @@
-## Layout of the SageMaker ModelBuild Project Template
+# Beatit-AI — Data Pipeline: Bronze → Silver → Gold (AWS Glue + Redshift)
 
-The template provides a starting point for bringing your SageMaker Pipeline development to production.
+> **Part of the [Beatit-AI Churn Prediction System](https://github.com/chetnapriyadarshini-iiit)** — a production MLOps system for predicting music streaming subscriber churn on AWS.
 
-```
-|-- codebuild-buildspec.yml
-|-- CONTRIBUTING.md
-|-- pipelines
-|   |-- abalone
-|   |   |-- evaluate.py
-|   |   |-- __init__.py
-|   |   |-- pipeline.py
-|   |   `-- preprocess.py
-|   |-- get_pipeline_definition.py
-|   |-- __init__.py
-|   |-- run_pipeline.py
-|   |-- _utils.py
-|   `-- __version__.py
-|-- README.md
-|-- sagemaker-pipelines-project.ipynb
-|-- setup.cfg
-|-- setup.py
-|-- tests
-|   `-- test_pipelines.py
-`-- tox.ini
-```
+This repository contains the AWS Glue ETL jobs and Redshift table definitions that implement a **Bronze → Silver → Gold medallion data architecture** to produce the feature store used by the Beatit churn prediction model.
 
-## Start here
-This is a sample code repository that demonstrates how you can organize your code for an ML business solution. This code repository is created as part of creating a Project in SageMaker. This project is a part of model develop, train and deploy pipeline, specifically model develop stage.
+---
 
-In this example, we are solving the KKBox prediction challenge. Dataset is coming from https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge/data The following section provides an overview of how the code is organized and what you need to modify. In particular, `pipelines/pipelines.py` contains the core of the business logic for this problem. It has the code to express the ML steps involved in generating an ML model. You will also find the code for that supports preprocessing and evaluation steps in `preprocess.py` and `evaluate.py` files respectively.
+## Table of Contents
 
-You can also use the `sagemaker-pipelines-project.ipynb` notebook to experiment from SageMaker Studio before you are ready to checkin your code.
+- [Overview](#overview)
+- [Medallion Architecture](#medallion-architecture)
+- [Table Catalogue](#table-catalogue)
+- [Repository Structure](#repository-structure)
+- [Technologies Used](#technologies-used)
+- [Related Repositories](#related-repositories)
+- [Contact](#contact)
 
-A description of some of the artifacts is provided below:
-<br/><br/>
-Your codebuild execution instructions. This file contains the instructions needed to kick off an execution of the SageMaker Pipeline in the CICD system (via CodePipeline). You will see that this file has the fields definined for naming the Pipeline, ModelPackageGroup etc. You can customize them as required.
+---
+
+## Overview
+
+Raw user behavioural data from the Beatit music streaming platform is ingested into S3 and progressively refined through three data quality tiers. The final Gold layer (`gold_ml_features`) serves as the feature input to the SageMaker training pipeline, ensuring that the ML model trains on clean, validated, business-aligned features rather than raw event logs.
+
+---
+
+## Medallion Architecture
 
 ```
-|-- codebuild-buildspec.yml
+S3 (Raw Data)
+     │
+     ▼
+┌──────────────────────────────────────┐
+│  BRONZE  — Raw ingested data         │
+│  Minimal transformation, audit trail │
+└─────────────────┬────────────────────┘
+                  │  AWS Glue ETL
+                  ▼
+┌──────────────────────────────────────┐
+│  SILVER  — Cleaned & validated data  │
+│  Deduplication, type casting,        │
+│  null handling, schema enforcement   │
+└─────────────────┬────────────────────┘
+                  │  Feature Engineering
+                  ▼
+┌──────────────────────────────────────┐
+│  GOLD  — Model-ready feature store   │
+│  Aggregated, enriched, labelled      │
+│  → gold_ml_features (SageMaker input)│
+└──────────────────────────────────────┘
 ```
 
-<br/><br/>
-Your pipeline artifacts, which includes a pipeline module defining the required `get_pipeline` method that returns an instance of a SageMaker pipeline, a preprocessing script that is used in feature engineering, and a model evaluation script to measure the Mean Squared Error of the model that's trained by the pipeline. This is the core business logic, and if you want to create your own folder, you can do so, and implement the `get_pipeline` interface as illustrated here.
+---
+
+## Table Catalogue
+
+| Table / Folder | Layer | Description |
+|---|---|---|
+| `dim_user_profile` | Silver | User dimension table — demographics, registration details, subscription tier |
+| `fact_subscription` | Silver | Subscription events — plan changes, renewals, cancellations, payment activity |
+| `fact_engagement` | Silver | User engagement facts — listening sessions, tracks played, skip rates |
+| `daily_aggregates` | Silver | Daily rollup of per-user engagement and subscription metrics |
+| `cohort_retention` | Gold | Cohort-level retention rates by registration month and subscription type |
+| `revenue_by_cohort` | Gold | Revenue trends segmented by user cohort for churn risk correlation |
+| `anomaly_flags` | Gold | Flags for anomalous user behaviour patterns indicative of pre-churn signals |
+| `gold_ml_features` | Gold | Final ML feature table — model-ready, labelled, consumed by SageMaker training pipeline |
+| `redshift_procedure` | Utility | Stored procedures for incremental table refresh and data quality checks |
+| `glue_job_create_tables_for_redshift` | Utility | AWS Glue job scripts to create and populate Redshift tables from S3 |
+
+---
+
+## Repository Structure
 
 ```
-|-- pipelines
-|   |-- abalone
-|   |   |-- evaluate.py
-|   |   |-- __init__.py
-|   |   |-- pipeline.py
-|   |   `-- preprocess.py
-
-```
-<br/><br/>
-Utility modules for getting pipeline definition jsons and running pipelines (you do not typically need to modify these):
-
-```
-|-- pipelines
-|   |-- get_pipeline_definition.py
-|   |-- __init__.py
-|   |-- run_pipeline.py
-|   |-- _utils.py
-|   `-- __version__.py
-```
-<br/><br/>
-Python package artifacts:
-```
-|-- setup.cfg
-|-- setup.py
-```
-<br/><br/>
-A stubbed testing module for testing your pipeline as you develop:
-```
-|-- tests
-|   `-- test_pipelines.py
-```
-<br/><br/>
-The `tox` testing framework configuration:
-```
-`-- tox.ini
+beatit-ai-glue-redshift-tables/
+├── dim_user_profile/               # User dimension table DDL and Glue job
+├── fact_subscription/              # Subscription fact table DDL and Glue job
+├── fact_engagement/                # Engagement fact table DDL and Glue job
+├── daily_aggregates/               # Daily rollup aggregation scripts
+├── cohort_retention/               # Cohort retention computation
+├── revenue_by_cohort/              # Revenue segmentation by cohort
+├── anomaly_flags/                  # Pre-churn anomaly detection flags
+├── gold_ml_features/               # Final model-ready feature table
+├── redshift_procedure/             # Stored procedures for incremental refresh
+└── glue_job_create_tables_for_redshift/  # Glue job entrypoints
 ```
 
-## Dataset for the KKBox Churn Pipeline
+---
 
-The dataset used is the [KKBox prediction challenge](https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge/data) [1]. The aim for this task is to determine whether the customer is going to churn or not based on past customers data. This data will them enable the company to take appropriate steps to retain the customer. At the core, it's a classification problem. 
-    
-The dataset contains several files ->  members.csv(msno,user details, user registration details ), train.csv(msno + churn/no churn), transactions.csv(user subscription and payment activity), user_logs.csv(activity details on website)
+## Technologies Used
 
-The data is first uploaded to S3 from where it is read and significant transformations are perfromed on it to extract and reveal new info.
+| Service / Tool | Purpose |
+|---|---|
+| **AWS Glue** | Serverless ETL — Bronze → Silver → Gold transformations |
+| **Amazon Redshift** | Cloud data warehouse — feature storage and analytical queries |
+| **Amazon S3** | Raw data lake — source for Bronze tier ingestion |
+| **Python (PySpark)** | ETL transformation logic within Glue jobs |
+| **SQL** | Redshift DDL, stored procedures, and aggregation queries |
 
-We'll upload the data to a bucket we own. But first we gather some constants we can use later throughout the notebook.
+---
+
+## Related Repositories
+
+| Repository | Role |
+|---|---|
+| [beatit_ai_common_utilites](https://github.com/chetnapriyadarshini-iiit/beatit_ai_common_utilites) | Shared utilities used across all pipeline components |
+| [beatit-ai-model-train](https://github.com/chetnapriyadarshini-iiit/beatit-ai-model-train) | Consumes `gold_ml_features` for SageMaker model training |
+| [beatit-ai-model-deploy](https://github.com/chetnapriyadarshini-iiit/beatit-ai-model-deploy) | Deploys trained model to SageMaker endpoints |
+| [beatit-ai-model-monitor](https://github.com/chetnapriyadarshini-iiit/beatit-ai-model-monitor) | Monitors deployed endpoints for data and model drift |
+
+---
+
+## Contact
+
+Created by [@chetnapriyadarshini](https://github.com/chetnapriyadarshini) — feel free to reach out with questions or suggestions.
